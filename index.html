@@ -873,7 +873,7 @@ function win() {
   G.passed = true; G.state = "won"; G.notes.length = 0; updateHud();
   const msg = stars === 3 ? "Без единой ошибки." : stars === 2 ? "Одна ошибка." : "Прошёл на последней жизни.";
   showCard(`<h3>Уровень пройден</h3><div class="big-stars">${starsHTML(stars)}</div><p>${msg} Можно играть дальше, пока есть жизни: ноты будут ускоряться. Следующий уровень открыт и в паузе.</p>`,
-    [["Продолжить", "btn-gold", () => { hideCard(); G.state = "play"; G.spawnCd = .5; }], ...nextBtn("btn-ghost"), ["К уровням", "btn-ghost", toMap]]);
+    [...nextBtn("btn-gold"), ["Продолжить", nextBtn().length ? "btn-ghost" : "btn-gold", () => { hideCard(); G.state = "play"; G.spawnCd = .5; }], ["К уровням", "btn-ghost", toMap]]);
 }
 function lose() {
   if (!G) return;
