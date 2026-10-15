@@ -46,23 +46,27 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 .app { height: 100%; display: flex; flex-direction: column; position: relative; }
 
 /* ---------- Map ---------- */
-#map { flex: 1; overflow-y: auto; padding-block: 28px 40px; padding-inline: 16px; }
-.map-inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
-.brand { display: flex; flex-direction: column; gap: 6px; text-align: center; padding-bottom: 6px; }
-.brand h1 { font-family: var(--f-display); font-weight: 600; font-size: clamp(38px, 8vw, 58px); line-height: 1; margin: 0; color: var(--gold); letter-spacing: .01em; text-wrap: balance; }
-.brand p { margin: 0; color: var(--muted); font-size: 14px; }
-.brand .clef { font-family: var(--f-music); font-size: 44px; color: var(--gold-dim); line-height: 1; height: 44px; }
-.chapter { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+#map { flex: 1; overflow-y: auto; padding-block: 20px 32px; padding-inline: 16px; }
+.map-inner { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.brand { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding-inline: 40px; }
+.brand-title { display: flex; align-items: center; gap: 10px; }
+.brand h1 { font-family: var(--f-display); font-weight: 600; font-size: clamp(25px, 6.8vw, 46px); line-height: 1; margin: 0; color: var(--gold); white-space: nowrap; letter-spacing: .01em; text-wrap: balance; }
+.brand p { margin: 0; color: var(--muted); font-size: 14px; text-wrap: balance; }
+.brand .clef { font-family: var(--f-music); font-size: clamp(30px, 6vw, 40px); color: var(--gold-dim); line-height: 1; }
+.chapter { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
 .chapter.locked { opacity: .45; }
 .ch-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .ch-head h2 { margin: 0; font-family: var(--f-display); font-weight: 600; font-size: 26px; line-height: 1.1; }
 .ch-head span { font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
 .ch-desc { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
-.levels { display: flex; gap: 10px; flex-wrap: wrap; }
+.levels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .lvl {
-  min-width: 112px; flex: 1 1 112px; text-align: left; background: var(--panel-2); border: 1px solid var(--rule);
-  border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;
+  text-align: left; background: var(--panel-2); border: 1px solid var(--rule);
+  border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; min-height: 64px;
 }
+.training { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.training #freeCard { grid-column: 1 / -1; }
+.training .chapter > div:last-child { margin-top: auto; }
 .lvl b { font-weight: 600; font-size: 14px; }
 .lvl small { color: var(--muted); font-size: 12px; line-height: 1.35; }
 .lvl .stars { color: var(--gold); letter-spacing: 2px; font-size: 13px; }
@@ -71,7 +75,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 .lvl:disabled { cursor: default; opacity: .5; }
 .lvl.next { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
 .marathon { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.section-title { margin: 6px 0 -8px; font-family: var(--f-display); font-weight: 600; font-size: 22px; color: var(--gold); }
+.section-title { margin: 8px 0 -4px; font-family: var(--f-display); font-weight: 600; font-size: 22px; color: var(--gold); }
 .map-inner { position: relative; }
 .clef-switch { display: flex; justify-content: center; gap: 0; margin-top: -8px; }
 .clef-switch button {
@@ -166,11 +170,11 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 /* ---------- Piano ---------- */
 .piano-wrap { background: linear-gradient(180deg, #121016, #0a090c); border-top: 1px solid var(--rule); padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; }
 .piano-case {
-  display: flex; gap: 10px; align-items: stretch; width: 100%; max-width: 640px;
+  display: flex; gap: 10px; align-items: stretch; width: 100%; max-width: 780px;
   background: #0f0e12; border: 1px solid var(--rule); border-radius: 14px; padding: 8px 10px;
 }
 .rail { width: 4px; border-radius: 2px; background: linear-gradient(180deg, var(--gold), var(--gold-dim)); flex: none; }
-.piano { position: relative; flex: 1; height: clamp(120px, 24vh, 190px); display: flex; gap: 3px; touch-action: none; }
+.piano { position: relative; flex: 1; height: clamp(120px, 26vh, 220px); display: flex; gap: 3px; touch-action: none; }
 .key { position: relative; border: 0; padding: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
 .key.white {
   flex: 1; background: linear-gradient(180deg, #f3efe6 0%, #ffffff 70%, #e7e2d6 100%); border-radius: 0 0 7px 7px;
@@ -198,6 +202,11 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 @keyframes hint { 50% { filter: brightness(1.25); } }
 
 @media (max-width: 560px) {
+  .levels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .opt-row > span { flex-basis: 100%; min-width: 0; }
+  .training { grid-template-columns: minmax(0, 1fr); }
+  .chapter { padding: 12px 14px; }
+  .ch-head h2 { font-size: 23px; }
   .stats { gap: 10px; width: 100%; justify-content: space-between; }
   .bar .title b { font-size: 17px; }
   .meter { width: 48px; }
@@ -223,21 +232,20 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
     <div class="map-inner">
       <button class="icon-btn map-sound" id="mapSoundBtn" aria-label="Звук"></button>
       <header class="brand">
-        <div class="clef" id="brandClef" aria-hidden="true">𝄞</div>
-        <h1>Нотный тренажёр</h1>
-        <p id="brandSub">Нота плывёт к скрипичному ключу. Нажми нужную клавишу, пока она не доплыла.</p>
+        <div class="brand-title"><span class="clef" id="brandClef" aria-hidden="true">𝄞</span><h1>Нотный тренажёр</h1></div>
+        <p id="brandSub">Успей нажать клавишу, пока нота не доплыла до ключа.</p>
       </header>
       <div class="clef-switch" id="clefSwitch" role="tablist" aria-label="Ключ"></div>
       <div id="chapters" style="display:flex;flex-direction:column;gap:16px"></div>
       <h2 class="section-title">Тренировка</h2>
-      <div class="chapter" id="weakCard"></div>
-      <div class="chapter" id="freeCard"></div>
-      <div class="chapter marathon" id="marathonCard">
-        <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
-          <div class="ch-head"><h2>Марафон</h2></div>
+      <div class="training">
+        <div class="chapter" id="freeCard"></div>
+        <div class="chapter" id="weakCard"></div>
+        <div class="chapter" id="marathonCard">
+          <div class="ch-head"><h2>Марафон</h2><span>с жизнями</span></div>
           <p class="ch-desc" id="marathonDesc">Все ноты, скорость растёт без конца.</p>
+          <div><button class="btn-gold" id="marathonBtn">Играть</button></div>
         </div>
-        <button class="btn-gold" id="marathonBtn">Играть</button>
       </div>
       <p class="map-foot">Три жизни на уровень. Десять верных подряд возвращают одну.<br>
         <span class="kb-only">С клавиатуры: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> белые, <kbd>W</kbd> <kbd>E</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd> чёрные, <kbd>Пробел</kbd> пауза.<br></span>
@@ -406,10 +414,10 @@ const MARATHON_BASE = { name:"Марафон", sub:"", time:6, target:Infinity, 
 const CLEFS = {
   treble: { name:"Скрипичный", glyph:"𝄞", bottom:30, glyphLine:32, glyphDy:2.6, glyphSize:9.4, chapters:TREBLE_CHAPTERS,
     marathon:[...naturals(F3,B5), ...withAcc(G3,B5,1), ...withAcc(G3,B5,-1)], marks:[F3, A3, C4, G4, B4, C5, F5, A5],
-    free:[[3,"Малая",F3,B3],[4,"Первая",C4,B4],[5,"Вторая",C5,B5]], freeDefault:4, sub:"Нота плывёт к скрипичному ключу. Нажми нужную клавишу, пока она не доплыла." },
+    free:[[3,"Малая",F3,B3],[4,"Первая",C4,B4],[5,"Вторая",C5,B5]], freeDefault:4, sub:"Успей нажать клавишу, пока нота не доплыла до ключа." },
   bass: { name:"Басовый", glyph:"𝄢", bottom:18, glyphLine:24, glyphDy:5.2, glyphSize:8.25, chapters:BASS_CHAPTERS,
     marathon:[...naturals(C2,E4), ...withAcc(C2,D4,1), ...withAcc(C2,E4,-1)], marks:[C2, E2, G2, C3, F3, A3, C4, E4],
-    free:[[2,"Большая",C2,B2],[3,"Малая",C3,B3],[4,"Первая",C4,E4]], freeDefault:3, sub:"Нота плывёт к басовому ключу. Нажми нужную клавишу, пока она не доплыла." },
+    free:[[2,"Большая",C2,B2],[3,"Малая",C3,B3],[4,"Первая",C4,E4]], freeDefault:3, sub:"Успей нажать клавишу, пока нота не доплыла до ключа." },
 };
 let CL, CHAPTERS, MARATHON, ALL_MARKS, STAFF;
 function setClef(k) {
@@ -532,7 +540,7 @@ function renderClefSwitch() {
 function renderPractice() {
   const weak = weakNotes(), wc = $("weakCard");
   wc.innerHTML = `<div class="ch-head"><h2>Трудные ноты</h2><span>без жизней</span></div>
-    <p class="ch-desc">${weak.length ? "Ноты, в которых ты чаще ошибаешься. Они же чаще попадаются в уровнях, пока не начнёшь отвечать верно." : "Здесь соберутся ноты, в которых ты ошибаешься. Сыграй пару уровней."}</p>
+    <p class="ch-desc">${weak.length ? "Ноты, в которых ты ошибаешься. В уровнях они попадаются чаще." : "Здесь соберутся ноты, в которых ты ошибаешься. Сыграй пару уровней."}</p>
     ${weak.length ? `<div class="weak-list">${weak.map(n => `<span>${fullName(n)}<b>×${Math.round(n.w)}</b></span>`).join("")}</div>` : ""}
     <div><button class="btn-gold" id="weakBtn">Тренировать</button></div>`;
   const wb = $("weakBtn"); wb.disabled = !weak.length; if (!weak.length) wb.style.opacity = ".45";
@@ -770,7 +778,7 @@ function pickNote() {
 
 // ---------- Geometry ----------
 function geom() {
-  const hs = Math.max(4, Math.min(13, H / 22));          // half-space between line and space; 20 steps (F3..A5 ledgers) must fit
+  const hs = Math.max(4, Math.min(17, H / 22, W / 40));          // half-space between line and space; 20 steps (F3..A5 ledgers) must fit
   const midY = H/2 - hs*.5;                               // y of the middle line; keeps 7 steps below and 13 above the staff in view
   const clefX = Math.max(10, W*0.02);
   const hitX = clefX + hs*7.2;
