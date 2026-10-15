@@ -330,7 +330,7 @@ const TREBLE_CHAPTERS = [
       { name:"Фа – Си + повтор", sub:"три линейки, Фа подписана", pool:naturals(F3,B3), review:naturals(C4,B5), time:6, target:18, queue:1, labels:[F3] },
     ]},
   { title:"Диезы и бемоли", glow:"--g4", desc:"Чёрные клавиши. Соль♯ и Ля♭ это одна клавиша, засчитываем обе.",
-    marks:[F4, B4], showMarks:[{s:F4,acc:1},{s:B4,acc:-1}], tip:"Нота стоит на своём месте, знак только сдвигает клавишу: ♯ на соседнюю справа, ♭ на соседнюю слева.",
+    marks:[F4, B4], showMarks:[{s:F4,acc:1},{s:B4,acc:-1}], tip:"Нота стоит на своём месте, знак только сдвигает клавишу: ♯ на соседнюю справа, ♭ на соседнюю слева. Соль♯ и Ля♭ это одна клавиша, засчитываем обе.",
     levels:[
       { name:"Диезы", sub:"первая октава, подписаны", pool:withAcc(C4,B4,1), review:naturals(C4,B4), reviewShare:.35, time:7, target:15, queue:1, labels:true },
       { name:"Бемоли", sub:"первая октава, подписаны", pool:withAcc(C4,B4,-1), review:naturals(C4,B4), reviewShare:.35, time:6.5, target:15, queue:1, labels:true },
@@ -371,7 +371,7 @@ const BASS_CHAPTERS = [
       { name:"До – Ми + повтор", sub:"немного прошлого", pool:naturals(C4,E4), review:naturals(C2,B3), time:6, target:18, queue:1, labels:false },
     ]},
   { title:"Диезы и бемоли", glow:"--g4", desc:"Чёрные клавиши. Соль♯ и Ля♭ это одна клавиша, засчитываем обе.",
-    marks:[F3, B2], showMarks:[{s:F3,acc:1},{s:B2,acc:-1}], tip:"Нота стоит на своём месте, знак только сдвигает клавишу: ♯ на соседнюю справа, ♭ на соседнюю слева.",
+    marks:[F3, B2], showMarks:[{s:F3,acc:1},{s:B2,acc:-1}], tip:"Нота стоит на своём месте, знак только сдвигает клавишу: ♯ на соседнюю справа, ♭ на соседнюю слева. Соль♯ и Ля♭ это одна клавиша, засчитываем обе.",
     levels:[
       { name:"Диезы", sub:"малая октава, подписаны", pool:withAcc(C3,B3,1), review:naturals(C3,B3), reviewShare:.35, time:7, target:15, queue:1, labels:true },
       { name:"Бемоли", sub:"малая октава, подписаны", pool:withAcc(C3,B3,-1), review:naturals(C3,B3), reviewShare:.35, time:6.5, target:15, queue:1, labels:true },
@@ -487,8 +487,8 @@ function renderMap() {
     const el = document.createElement("div");
     el.className = "chapter" + (open ? "" : " locked");
     const earned = ch.levels.reduce((a, _, l) => a + (P().stars[lvKey(c,l)] || 0), 0);
-    el.innerHTML = `<div class="ch-head"><h2>${ch.title}</h2><span>Глава ${c+1} · ${earned} из ${ch.levels.length*3} ★</span></div>
-      <p class="ch-desc">${ch.desc}</p><div class="levels"></div>`;
+    el.innerHTML = `<div class="ch-head"><h2>${ch.title}</h2><span>${earned} / ${ch.levels.length*3} ★</span></div>
+      <div class="levels"></div>`;
     const lv = el.querySelector(".levels");
     ch.levels.forEach((L, l) => {
       const b = document.createElement("button"); b.className = "lvl";
