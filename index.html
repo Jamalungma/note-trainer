@@ -495,7 +495,7 @@ function renderMap() {
       const ok = isUnlocked(c, l), stars = P().stars[lvKey(c,l)] || 0;
       if (ok && !stars && !nextMarked) { b.classList.add("next"); nextMarked = true; }
       b.disabled = !ok;
-      b.innerHTML = `<b>${c+1}.${l+1} ${L.name}</b><small>${L.sub}</small><span class="stars">${ok ? starsHTML(stars) : "закрыт"}</span>`;
+      b.innerHTML = `<b>${c+1}.${l+1} ${L.name}</b><span class="stars">${ok ? starsHTML(stars) : "закрыт"}</span>`;
       b.addEventListener("click", () => startLevel(c, l));
       lv.appendChild(b);
     });
