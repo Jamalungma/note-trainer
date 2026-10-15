@@ -235,7 +235,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
       <div class="chapter marathon" id="marathonCard">
         <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
           <div class="ch-head"><h2>Марафон</h2></div>
-          <p class="ch-desc" id="marathonDesc">Все ноты, скорость растёт без конца. Откроется после финала.</p>
+          <p class="ch-desc" id="marathonDesc">Все ноты, скорость растёт без конца.</p>
         </div>
         <button class="btn-gold" id="marathonBtn">Играть</button>
       </div>
@@ -467,12 +467,9 @@ const P = () => save.data[save.clef];
 setClef(save.clef);
 const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} };
 const lvKey = (c, l) => `${c}.${l}`;
-const isUnlocked = (c, l) => {
-  if (c === 0 && l === 0) return true;
-  if (l > 0) return !!P().stars[lvKey(c, l-1)];
-  const prev = CHAPTERS[c-1]; return !!P().stars[lvKey(c-1, prev.levels.length-1)];
-};
-const marathonUnlocked = () => { const c = CHAPTERS.length-1; return !!P().stars[lvKey(c, CHAPTERS[c].levels.length-1)]; };
+// every level is open: progress lives in one browser, so locking would strand players on a new device
+const isUnlocked = () => true;
+const marathonUnlocked = () => true;
 
 // ---------- DOM ----------
 const $ = id => document.getElementById(id);
