@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Тренажёр чтения нот в скрипичном ключе: нота плывёт к ключу, успей нажать нужную клавишу.">
+<meta name="description" content="Тренажёр чтения нот в скрипичном и басовом ключах: нота плывёт к ключу, успей нажать нужную клавишу.">
 <meta name="theme-color" content="#0c0b0e">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230c0b0e'/%3E%3Cellipse cx='28' cy='44' rx='11' ry='8' transform='rotate(-20 28 44)' fill='%23d8b25a'/%3E%3Crect x='37' y='12' width='4' height='32' fill='%23d8b25a'/%3E%3C/svg%3E">
 <style>body{margin:0}*,*::before,*::after{box-sizing:border-box}[hidden]{display:none!important}</style>
@@ -73,6 +73,16 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 .marathon { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .section-title { margin: 6px 0 -8px; font-family: var(--f-display); font-weight: 600; font-size: 22px; color: var(--gold); }
 .map-inner { position: relative; }
+.clef-switch { display: flex; justify-content: center; gap: 0; margin-top: -8px; }
+.clef-switch button {
+  background: var(--panel); border: 1px solid var(--rule); padding: 8px 18px; font-size: 14px; color: var(--muted);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.clef-switch button:first-child { border-radius: 999px 0 0 999px; }
+.clef-switch button:last-child { border-radius: 0 999px 999px 0; border-left: 0; }
+.clef-switch button i { font-style: normal; font-family: var(--f-music); font-size: 22px; line-height: 1; color: var(--gold-dim); }
+.clef-switch button[aria-selected="true"] { color: var(--ink); background: var(--panel-2); border-color: var(--gold-dim); }
+.clef-switch button[aria-selected="true"] i { color: var(--gold); }
 .map-sound { position: absolute; top: 0; right: 0; z-index: 1; }
 .chip {
   background: var(--panel-2); border: 1px solid var(--rule); border-radius: 999px; padding: 7px 14px;
@@ -213,10 +223,11 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
     <div class="map-inner">
       <button class="icon-btn map-sound" id="mapSoundBtn" aria-label="Звук"></button>
       <header class="brand">
-        <div class="clef" aria-hidden="true">𝄞</div>
+        <div class="clef" id="brandClef" aria-hidden="true">𝄞</div>
         <h1>Нотный тренажёр</h1>
-        <p>Нота плывёт к скрипичному ключу. Нажми нужную клавишу, пока она не доплыла.</p>
+        <p id="brandSub">Нота плывёт к скрипичному ключу. Нажми нужную клавишу, пока она не доплыла.</p>
       </header>
+      <div class="clef-switch" id="clefSwitch" role="tablist" aria-label="Ключ"></div>
       <div id="chapters" style="display:flex;flex-direction:column;gap:16px"></div>
       <h2 class="section-title">Тренировка</h2>
       <div class="chapter" id="weakCard"></div>
@@ -274,7 +285,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 // Diatonic step s = octave*7 + letter (C=0..B=6). Octave numbers are scientific: 3 = малая, 4 = первая, 5 = вторая.
 const NAMES = ["До","Ре","Ми","Фа","Соль","Ля","Си"];
 const SEMI = [0,2,4,5,7,9,11];
-const OCT_NAME = {3:"малой",4:"первой",5:"второй"};
+const OCT_NAME = {1:"контроктавы",2:"большой",3:"малой",4:"первой",5:"второй"};
 const SHARPABLE = [0,1,3,4,5], FLATTABLE = [1,2,4,5,6];
 const st = (letter, oct) => oct*7 + letter;
 const pcOf = n => ((SEMI[n.s%7] + n.acc) % 12 + 12) % 12;
@@ -290,10 +301,11 @@ const withAcc = (a, b, acc) => {
   return r;
 };
 const C3=st(0,3), F3=st(3,3), G3=st(4,3), A3=st(5,3), B3=st(6,3), C4=st(0,4), G4=st(4,4), B4=st(6,4), C5=st(0,5), G5=st(4,5), A5=st(5,5), B5=st(6,5), A4=st(5,4), F4=st(3,4), F5=st(3,5), E5=st(2,5);
+const C2=st(0,2), D2=st(1,2), E2=st(2,2), G2=st(4,2), A2=st(5,2), B2=st(6,2), D3=st(1,3), E3=st(2,3), D4=st(1,4), E4=st(2,4);
 
 // ---------- Levels ----------
 // time: seconds for a note to cross the stage at the start of the level (ramps ~15% faster by the end)
-const CHAPTERS = [
+const TREBLE_CHAPTERS = [
   { title:"Первая октава", glow:"--g1", desc:"Сердце скрипичного ключа: от До на добавочной линейке до Си на третьей линии.",
     marks:[C4, G4, B4], tip:"Завиток ключа обвивает 2-ю линию: это Соль. До стоит на линейке снизу, Си ровно посередине стана. Остальные ноты в шаге от них.",
     levels:[
@@ -332,25 +344,81 @@ const CHAPTERS = [
       { name:"Испытание", sub:"очередь из трёх, быстро", pool:[...naturals(F3,B5), ...withAcc(G3,B5,1), ...withAcc(G3,B5,-1)], time:4.2, target:25, queue:3, labels:false },
     ]},
 ];
+
+// Bass clef: lines G2 B2 D3 F3 A3 (s 18..26), middle line D3.
+const BASS_CHAPTERS = [
+  { title:"Малая октава", glow:"--g1", desc:"Сердце басового ключа: от До во 2-м промежутке до Си над станом.",
+    marks:[C3, F3, A3], tip:"Две точки басового ключа обнимают 4-ю линию: это Фа малой. До малой во 2-м промежутке, Ля на верхней линии. Остальные ноты в шаге от них.",
+    levels:[
+      { name:"До – Соль", sub:"медленно, ноты подписаны", pool:naturals(C3,G3), time:7.5, target:12, queue:1, labels:true },
+      { name:"Вся октава", sub:"Ля и Си подписаны", pool:naturals(C3,B3), time:7, target:15, queue:1, labels:[A3,B3] },
+      { name:"Быстрее", sub:"без очереди", pool:naturals(C3,B3), time:5.5, target:15, queue:1, labels:false },
+      { name:"Очередь", sub:"по две ноты", pool:naturals(C3,B3), time:5.5, target:18, queue:2, labels:false },
+    ]},
+  { title:"Большая октава", glow:"--g2", desc:"Низ стана и добавочные линейки под ним.",
+    marks:[C2, E2, G2], tip:"Соль большой на нижней линии, Ми на линейке снизу, До на двух линейках снизу.",
+    levels:[
+      { name:"Ми – Си", sub:"медленно, ноты подписаны", pool:naturals(E2,B2), time:7.5, target:12, queue:1, labels:true },
+      { name:"Вся октава", sub:"две линейки, До и Ре подписаны", pool:naturals(C2,B2), time:7, target:15, queue:1, labels:[C2,D2] },
+      { name:"Быстрее", sub:"без очереди", pool:naturals(C2,B2), time:5.5, target:15, queue:1, labels:false },
+      { name:"Очередь + повтор", sub:"по две, немного малой", pool:naturals(C2,B2), review:naturals(C3,B3), time:5.5, target:18, queue:2, labels:false },
+    ]},
+  { title:"Первая октава", glow:"--g3", desc:"Ноты над станом на добавочных линейках.",
+    marks:[A3, C4, E4], tip:"Считай линейки сверху: одна это До первой, две это Ми первой. До первой — зеркало Ми большой.",
+    levels:[
+      { name:"Си, До и Ре", sub:"ноты подписаны", pool:[{s:B3,acc:0}, ...naturals(C4,D4)], time:7.5, target:12, queue:1, labels:true },
+      { name:"До – Ми", sub:"Ми подписана", pool:naturals(B3,E4), time:6.5, target:15, queue:1, labels:[E4] },
+      { name:"До – Ми + повтор", sub:"немного прошлого", pool:naturals(C4,E4), review:naturals(C2,B3), time:6, target:18, queue:1, labels:false },
+    ]},
+  { title:"Диезы и бемоли", glow:"--g4", desc:"Чёрные клавиши. Соль♯ и Ля♭ это одна клавиша, засчитываем обе.",
+    marks:[F3, B2], showMarks:[{s:F3,acc:1},{s:B2,acc:-1}], tip:"Нота стоит на своём месте, знак только сдвигает клавишу: ♯ на соседнюю справа, ♭ на соседнюю слева.",
+    levels:[
+      { name:"Диезы", sub:"малая октава, подписаны", pool:withAcc(C3,B3,1), review:naturals(C3,B3), reviewShare:.35, time:7, target:15, queue:1, labels:true },
+      { name:"Бемоли", sub:"малая октава, подписаны", pool:withAcc(C3,B3,-1), review:naturals(C3,B3), reviewShare:.35, time:6.5, target:15, queue:1, labels:true },
+      { name:"Все знаки", sub:"большая и малая октавы", pool:[...withAcc(C2,B3,1), ...withAcc(C2,B3,-1)], review:naturals(C2,B3), reviewShare:.35, time:6, target:18, queue:1, labels:false },
+    ]},
+  { title:"Финал", glow:"--g5", desc:"Все октавы вместе, быстрее и очередями.",
+    marks:[C2, E2, G2, C3, F3, A3, C4, E4], tip:"Найди ближайший маяк и посчитай шаги: линия, промежуток, линия.",
+    levels:[
+      { name:"Все ноты", sub:"очередь из двух", pool:naturals(C2,E4), time:5.5, target:20, queue:2, labels:false },
+      { name:"Со знаками", sub:"очередь из двух", pool:[...naturals(C2,E4), ...withAcc(C2,B3,1), ...withAcc(C2,B3,-1)], time:5, target:20, queue:2, labels:false },
+      { name:"Испытание", sub:"очередь из трёх, быстро", pool:[...naturals(C2,E4), ...withAcc(C2,D4,1), ...withAcc(C2,E4,-1)], time:4.2, target:25, queue:3, labels:false },
+    ]},
+];
 const nk = n => `${n.s}:${n.acc}`;
-const FREE_RANGES = { 3:[F3,B3], 4:[C4,B4], 5:[C5,B5] };
 const FREE_SPEEDS = [ {name:"Медленно", time:8}, {name:"Средне", time:6}, {name:"Быстро", time:4.2} ];
 function weakNotes() {
-  return Object.entries(save.weak || {}).filter(([, w]) => w >= 1).sort((a, b) => b[1] - a[1]).slice(0, 8)
+  return Object.entries(P().weak || {}).filter(([, w]) => w >= 1).sort((a, b) => b[1] - a[1]).slice(0, 8)
     .map(([k, w]) => { const [s, acc] = k.split(":").map(Number); return { s, acc, w }; });
 }
 function buildWeak() {
   return { name:"Трудные ноты", pool: weakNotes().map(({s, acc}) => ({s, acc})), time:7.5, target:15, queue:1, labels:"first", practice:true };
 }
 function buildFree() {
-  const f = save.free, pool = [];
-  f.oct.forEach(o => { const [a, b] = FREE_RANGES[o]; pool.push(...naturals(a, b)); if (f.acc) pool.push(...withAcc(a, b, 1), ...withAcc(a, b, -1)); });
+  const f = P().free, pool = [];
+  f.oct.forEach(o => { const r = CL.free.find(x => x[0] === o); if (!r) return; const [, , a, b] = r; pool.push(...naturals(a, b)); if (f.acc) pool.push(...withAcc(a, b, 1), ...withAcc(a, b, -1)); });
   return { name:"Свободная", pool, time: FREE_SPEEDS[f.speed].time, target:Infinity, queue:1, labels: f.labels, practice:true, endless:true };
 }
-const MARATHON = { name:"Марафон", sub:"", pool:[...naturals(F3,B5), ...withAcc(G3,B5,1), ...withAcc(G3,B5,-1)], time:6, target:Infinity, queue:1, labels:false, marathon:true };
+const MARATHON_BASE = { name:"Марафон", sub:"", time:6, target:Infinity, queue:1, labels:false, marathon:true };
+
+// ---------- Clefs ----------
+// bottom: diatonic step of the bottom staff line; glyph sits on glyphLine, nudged by glyphDy half-spaces.
+const CLEFS = {
+  treble: { name:"Скрипичный", glyph:"𝄞", bottom:30, glyphLine:32, glyphDy:2.6, glyphSize:9.4, chapters:TREBLE_CHAPTERS,
+    marathon:[...naturals(F3,B5), ...withAcc(G3,B5,1), ...withAcc(G3,B5,-1)], marks:[F3, A3, C4, G4, B4, C5, F5, A5],
+    free:[[3,"Малая",F3,B3],[4,"Первая",C4,B4],[5,"Вторая",C5,B5]], freeDefault:4, sub:"Нота плывёт к скрипичному ключу. Нажми нужную клавишу, пока она не доплыла." },
+  bass: { name:"Басовый", glyph:"𝄢", bottom:18, glyphLine:24, glyphDy:5.2, glyphSize:8.25, chapters:BASS_CHAPTERS,
+    marathon:[...naturals(C2,E4), ...withAcc(C2,D4,1), ...withAcc(C2,E4,-1)], marks:[C2, E2, G2, C3, F3, A3, C4, E4],
+    free:[[2,"Большая",C2,B2],[3,"Малая",C3,B3],[4,"Первая",C4,E4]], freeDefault:3, sub:"Нота плывёт к басовому ключу. Нажми нужную клавишу, пока она не доплыла." },
+};
+let CL, CHAPTERS, MARATHON, ALL_MARKS, STAFF;
+function setClef(k) {
+  CL = CLEFS[k]; CHAPTERS = CL.chapters; ALL_MARKS = CL.marks;
+  MARATHON = Object.assign({}, MARATHON_BASE, { pool: CL.marathon });
+  STAFF = { bottom: CL.bottom, mid: CL.bottom + 4 };
+}
 
 // ---------- Landmarks ----------
-const ALL_MARKS = [F3, A3, C4, G4, B4, C5, F5, A5];
 const marksFor = c => (c >= 0 && CHAPTERS[c].marks) || ALL_MARKS;
 const STEP_WORD = d => d === 1 ? "на шаг" : d === 2 ? "через одну" : `на ${d} ${d < 5 ? "шага" : "шагов"}`;
 function relHint(n, c) {
@@ -364,18 +432,18 @@ function relHint(n, c) {
   return `${STEP_WORD(Math.abs(d))} ${d > 0 ? "выше" : "ниже"} ${NAMES[m%7]}`;
 }
 function staffSVG(notes) {
-  const hs = 6, top = 42, w = 92 + notes.length * 56, h = (top - 22) * hs + 18;
+  const hs = 6, top = STAFF.bottom + 12, w = 92 + notes.length * 56, h = 20 * hs + 18;
   const y = s => 8 + (top - s) * hs;
   let o = `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:${w*1.25}px;display:block;margin:0 auto" role="img" aria-label="Опорные ноты: ${notes.map(nameOfLong).join(", ")}">`;
-  for (let s = 30; s <= 38; s += 2) o += `<line x1="4" x2="${w-4}" y1="${y(s)}" y2="${y(s)}" stroke="#d8b25a" stroke-opacity=".55" stroke-width="1.1"/>`;
-  o += `<text x="6" y="${y(32) + hs*2.6}" font-size="${hs*9.4}" fill="#d8b25a" style="font-family:var(--f-music)">𝄞</text>`;
+  for (let s = STAFF.bottom; s <= STAFF.bottom + 8; s += 2) o += `<line x1="4" x2="${w-4}" y1="${y(s)}" y2="${y(s)}" stroke="#d8b25a" stroke-opacity=".55" stroke-width="1.1"/>`;
+  o += `<text x="6" y="${y(CL.glyphLine) + hs*CL.glyphDy}" font-size="${hs*CL.glyphSize}" fill="#d8b25a" style="font-family:var(--f-music)">${CL.glyph}</text>`;
   notes.forEach((n, i) => {
     const x = 92 + i * 56, ny = y(n.s);
-    for (let s = 28; s >= n.s; s -= 2) o += `<line x1="${x-11}" x2="${x+11}" y1="${y(s)}" y2="${y(s)}" stroke="#d8b25a" stroke-width="1.8"/>`;
-    for (let s = 40; s <= n.s; s += 2) o += `<line x1="${x-11}" x2="${x+11}" y1="${y(s)}" y2="${y(s)}" stroke="#d8b25a" stroke-width="1.8"/>`;
+    for (let s = STAFF.bottom - 2; s >= n.s; s -= 2) o += `<line x1="${x-11}" x2="${x+11}" y1="${y(s)}" y2="${y(s)}" stroke="#d8b25a" stroke-width="1.8"/>`;
+    for (let s = STAFF.bottom + 10; s <= n.s; s += 2) o += `<line x1="${x-11}" x2="${x+11}" y1="${y(s)}" y2="${y(s)}" stroke="#d8b25a" stroke-width="1.8"/>`;
     if (n.acc) o += `<text x="${x-17}" y="${ny + (n.acc < 0 ? 1 : 5)}" font-size="17" text-anchor="middle" fill="#efe8d8" style="font-family:var(--f-music)">${accSym(n.acc)}</text>`;
     o += `<ellipse cx="${x}" cy="${ny}" rx="${hs*1.3}" ry="${hs*.9}" transform="rotate(-20 ${x} ${ny})" fill="#efe8d8"/>`;
-    const ly = n.s < B4 ? ny + 20 : ny - 14;
+    const ly = n.s < STAFF.mid ? ny + 20 : ny - 14;
     o += `<text x="${x}" y="${ly}" font-size="12" font-weight="600" text-anchor="middle" fill="#d8b25a" style="font-family:var(--f-ui)">${nameOf(n)}</text>`;
   });
   return o + `</svg>`;
@@ -384,16 +452,27 @@ const nameOfLong = n => fullName(n);
 
 // ---------- Save ----------
 const SAVE_KEY = "note-trainer-v1";
-let save = { stars:{}, best:0, weak:{}, muted:false, iosTip:false, free:{ oct:[4], acc:false, speed:1, labels:false } };
+let save = { clef:"treble", muted:false, iosTip:false, data:{} };
 try { const raw = localStorage.getItem(SAVE_KEY); if (raw) save = Object.assign(save, JSON.parse(raw)); } catch (e) {}
+// v1 kept treble progress at the top level
+if (!save.data.treble && (save.stars || save.weak)) save.data.treble = { stars: save.stars || {}, best: save.best || 0, weak: save.weak || {}, free: save.free };
+["stars","best","weak","free"].forEach(k => delete save[k]);
+for (const k in CLEFS) {
+  const d = save.data[k] = save.data[k] || {};
+  d.stars = d.stars || {}; d.best = d.best || 0; d.weak = d.weak || {};
+  d.free = d.free || { oct:[CLEFS[k].freeDefault], acc:false, speed:1, labels:false };
+}
+if (!CLEFS[save.clef]) save.clef = "treble";
+const P = () => save.data[save.clef];
+setClef(save.clef);
 const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} };
 const lvKey = (c, l) => `${c}.${l}`;
 const isUnlocked = (c, l) => {
   if (c === 0 && l === 0) return true;
-  if (l > 0) return !!save.stars[lvKey(c, l-1)];
-  const prev = CHAPTERS[c-1]; return !!save.stars[lvKey(c-1, prev.levels.length-1)];
+  if (l > 0) return !!P().stars[lvKey(c, l-1)];
+  const prev = CHAPTERS[c-1]; return !!P().stars[lvKey(c-1, prev.levels.length-1)];
 };
-const marathonUnlocked = () => { const c = CHAPTERS.length-1; return !!save.stars[lvKey(c, CHAPTERS[c].levels.length-1)]; };
+const marathonUnlocked = () => { const c = CHAPTERS.length-1; return !!P().stars[lvKey(c, CHAPTERS[c].levels.length-1)]; };
 
 // ---------- DOM ----------
 const $ = id => document.getElementById(id);
@@ -410,13 +489,13 @@ function renderMap() {
     const open = isUnlocked(c, 0);
     const el = document.createElement("div");
     el.className = "chapter" + (open ? "" : " locked");
-    const earned = ch.levels.reduce((a, _, l) => a + (save.stars[lvKey(c,l)] || 0), 0);
+    const earned = ch.levels.reduce((a, _, l) => a + (P().stars[lvKey(c,l)] || 0), 0);
     el.innerHTML = `<div class="ch-head"><h2>${ch.title}</h2><span>Глава ${c+1} · ${earned} из ${ch.levels.length*3} ★</span></div>
       <p class="ch-desc">${ch.desc}</p><div class="levels"></div>`;
     const lv = el.querySelector(".levels");
     ch.levels.forEach((L, l) => {
       const b = document.createElement("button"); b.className = "lvl";
-      const ok = isUnlocked(c, l), stars = save.stars[lvKey(c,l)] || 0;
+      const ok = isUnlocked(c, l), stars = P().stars[lvKey(c,l)] || 0;
       if (ok && !stars && !nextMarked) { b.classList.add("next"); nextMarked = true; }
       b.disabled = !ok;
       b.innerHTML = `<b>${c+1}.${l+1} ${L.name}</b><small>${L.sub}</small><span class="stars">${ok ? starsHTML(stars) : "закрыт"}</span>`;
@@ -425,12 +504,12 @@ function renderMap() {
     });
     wrap.appendChild(el);
   });
-  syncSoundBtn(); renderPractice();
+  syncSoundBtn(); renderClefSwitch(); renderPractice();
   const mOpen = marathonUnlocked();
   $("marathonCard").classList.toggle("locked", !mOpen);
   $("marathonBtn").disabled = !mOpen;
   $("marathonDesc").textContent = mOpen
-    ? `Все ноты, скорость растёт без конца. Рекорд: ${save.best}.`
+    ? `Все ноты, скорость растёт без конца. Рекорд: ${P().best}.`
     : "Все ноты, скорость растёт без конца. Откроется после финала.";
 }
 $("marathonBtn").addEventListener("click", () => marathonUnlocked() && startLevel(-1, -1));
@@ -441,6 +520,18 @@ function chip(label, on, fn) {
   b.setAttribute("aria-pressed", on ? "true" : "false"); b.textContent = label;
   b.addEventListener("click", fn); return b;
 }
+function renderClefSwitch() {
+  const el = $("clefSwitch"); el.innerHTML = "";
+  for (const k in CLEFS) {
+    const b = document.createElement("button"); b.type = "button"; b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", save.clef === k ? "true" : "false");
+    b.innerHTML = `<i aria-hidden="true">${CLEFS[k].glyph}</i>${CLEFS[k].name}`;
+    b.addEventListener("click", () => { if (save.clef === k) return; save.clef = k; setClef(k); persist(); renderMap(); });
+    el.append(b);
+  }
+  $("brandClef").textContent = CL.glyph;
+  $("brandSub").textContent = CL.sub;
+}
 function renderPractice() {
   const weak = weakNotes(), wc = $("weakCard");
   wc.innerHTML = `<div class="ch-head"><h2>Трудные ноты</h2><span>без жизней</span></div>
@@ -450,14 +541,14 @@ function renderPractice() {
   const wb = $("weakBtn"); wb.disabled = !weak.length; if (!weak.length) wb.style.opacity = ".45";
   wb.addEventListener("click", () => weakNotes().length && startLevel(-2, -1));
 
-  const f = save.free, fc = $("freeCard");
+  const f = P().free, fc = $("freeCard");
   fc.innerHTML = `<div class="ch-head"><h2>Свободная тренировка</h2><span>без жизней</span></div>
     <p class="ch-desc">Выбери ноты и скорость. Играй сколько хочешь.</p>
     <div class="opt-row" id="optOct"><span>Октавы</span></div>
     <div class="opt-row" id="optMore"><span>Ещё</span></div>
     <div class="opt-row" id="optSpeed"><span>Скорость</span></div>
     <div><button class="btn-gold" id="freeBtn">Играть</button></div>`;
-  [[3,"Малая"],[4,"Первая"],[5,"Вторая"]].forEach(([o, label]) => {
+  CL.free.forEach(([o, label]) => {
     $("optOct").append(chip(label, f.oct.includes(o), () => {
       const on = f.oct.includes(o);
       if (on && f.oct.length === 1) return;
@@ -514,8 +605,8 @@ function audio() {
   if (actx.state === "suspended") actx.resume();
   return actx;
 }
-// Salamander Grand Piano samples, every minor third from C3 to C6; other notes are pitch-shifted from the nearest one.
-const SAMPLE_FILES = { 48:"C3", 51:"Ds3", 54:"Fs3", 57:"A3", 60:"C4", 63:"Ds4", 66:"Fs4", 69:"A4", 72:"C5", 75:"Ds5", 78:"Fs5", 81:"A5", 84:"C6" };
+// Salamander Grand Piano samples, every minor third from C2 to C6; other notes are pitch-shifted from the nearest one.
+const SAMPLE_FILES = { 36:"C2", 39:"Ds2", 42:"Fs2", 45:"A2", 48:"C3", 51:"Ds3", 54:"Fs3", 57:"A3", 60:"C4", 63:"Ds4", 66:"Fs4", 69:"A4", 72:"C5", 75:"Ds5", 78:"Fs5", 81:"A5", 84:"C6" };
 const samples = {};
 function loadSamples() {
   const a = (() => { try { return actx || (actx = new (window.AudioContext || window.webkitAudioContext)()); } catch (e) { return null; } })();
@@ -600,7 +691,7 @@ function startLevel(c, l) {
   $("statLives").hidden = $("statStreak").hidden = !!L.practice;
   mapEl.hidden = true; gameEl.hidden = false; pianoWrap.hidden = false;
   $("gChapter").textContent = c === -1 ? "Марафон" : L.practice ? "Тренировка" : `Глава ${c+1} · ${CHAPTERS[c].title}`;
-  $("gTitle").textContent = c === -1 ? `Рекорд ${save.best}` : L.practice ? L.name : `${c+1}.${l+1} ${L.name}`;
+  $("gTitle").textContent = c === -1 ? `Рекорд ${P().best}` : L.practice ? L.name : `${c+1}.${l+1} ${L.name}`;
   $("progLabel").textContent = L.marathon ? "Счёт" : L.endless ? "Верно" : "Ноты";
   syncSoundBtn(); resize(); updateHud();
   const kb = `<p class="kbd-hint">Пробел — пауза и подсказка</p>`;
@@ -663,7 +754,7 @@ function pickNote() {
   const fromReview = L.review && Math.random() < (L.reviewShare || .2);
   if (fromReview) pool = L.review;
   // notes you often miss come up more often (weight up to ×4); never the same note twice in a row
-  const ws = pool.map(p => (G.lastS && pool.length > 1 && p.s === G.lastS.s && p.acc === G.lastS.acc) ? 0 : 1 + Math.min(3, (save.weak || {})[nk(p)] || 0));
+  const ws = pool.map(p => (G.lastS && pool.length > 1 && p.s === G.lastS.s && p.acc === G.lastS.acc) ? 0 : 1 + Math.min(3, (P().weak || {})[nk(p)] || 0));
   let r = Math.random() * ws.reduce((a, b) => a + b, 0), n = pool[pool.length - 1];
   for (let i = 0; i < pool.length; i++) if ((r -= ws[i]) <= 0) { n = pool[i]; break; }
   G.lastS = n;
@@ -674,12 +765,12 @@ function pickNote() {
 // ---------- Geometry ----------
 function geom() {
   const hs = Math.max(4, Math.min(13, H / 22));          // half-space between line and space; 20 steps (F3..A5 ledgers) must fit
-  const midY = H/2 - hs*.5;                               // y of B4 (middle line); keeps the F3–C6 range centred
+  const midY = H/2 - hs*.5;                               // y of the middle line; keeps 7 steps below and 13 above the staff in view
   const clefX = Math.max(10, W*0.02);
   const hitX = clefX + hs*7.2;
   return { hs, midY, clefX, hitX, startX: W + hs*3 };
 }
-const yOf = (s, g) => g.midY - (s - B4) * g.hs;
+const yOf = (s, g) => g.midY - (s - STAFF.mid) * g.hs;
 
 // ---------- Loop ----------
 function resize() {
@@ -728,7 +819,7 @@ function hit(n, pc) {
   burst(n.x, yOf(n.s, g), G.glow, 22);
   G.notes.shift(); G.hits++; G.tries++; G.streak++;
   G.learned.add(nk(n));
-  const k = nk(n); if (save.weak[k]) { save.weak[k] = Math.max(0, save.weak[k] - .34); if (save.weak[k] < .05) delete save.weak[k]; persist(); }
+  const k = nk(n); if (P().weak[k]) { P().weak[k] = Math.max(0, P().weak[k] - .34); if (P().weak[k] < .05) delete P().weak[k]; persist(); }
   if (G.streak % 10 === 0 && !G.L.practice) {
     if (G.lives < 3) { G.lives++; floatText("+♥", n.x, yOf(n.s, g) - g.hs*3, "#ff8f8f"); bumpHearts(); }
     else floatText(`Серия ${G.streak}`, n.x, yOf(n.s, g) - g.hs*3, G.glow);
@@ -746,7 +837,7 @@ function fail(n, pressedPc) {
   burst(n.x, y, "#ff5d5d", 14);
   floatText(`Это ${fullName(n)}`, Math.max(n.x, g.hitX + 60), y - g.hs*3.2, "#ff8f8f");
   floatText(relHint(n, G.c), Math.max(n.x, g.hitX + 60), y - g.hs*3.2 + Math.max(20, g.hs*2.2), "#e9c97a", .8);
-  const k = nk(n); save.weak[k] = Math.min(6, (save.weak[k] || 0) + 1); persist();
+  const k = nk(n); P().weak[k] = Math.min(6, (P().weak[k] || 0) + 1); persist();
   G.notes.shift(); G.tries++; G.streak = 0; G.shake = .25; G.flashBad = .35;
   if (!G.L.practice) G.lives--;
   bumpHearts(); updateHud();
@@ -764,7 +855,7 @@ function win() {
     return;
   }
   const stars = G.lives, key = lvKey(G.c, G.l);
-  const prev = save.stars[key] || 0; save.stars[key] = Math.max(prev, stars); persist();
+  const prev = P().stars[key] || 0; P().stars[key] = Math.max(prev, stars); persist();
   const next = nextLevel(G.c, G.l);
   const btns = [];
   if (next) btns.push(["Дальше", "btn-gold", () => startLevel(next[0], next[1])]);
@@ -776,8 +867,8 @@ function win() {
 function lose() {
   if (!G) return;
   if (G.L.marathon) {
-    const rec = G.hits > save.best; if (rec) { save.best = G.hits; persist(); }
-    showCard(`<h3>${rec ? "Новый рекорд" : "Марафон окончен"}</h3><p>Счёт ${G.hits}. Рекорд ${save.best}.</p>`,
+    const rec = G.hits > P().best; if (rec) { P().best = G.hits; persist(); }
+    showCard(`<h3>${rec ? "Новый рекорд" : "Марафон окончен"}</h3><p>Счёт ${G.hits}. Рекорд ${P().best}.</p>`,
       [["Ещё раз","btn-gold",() => startLevel(-1,-1)], ["К уровням","btn-ghost",toMap]]);
     return;
   }
@@ -796,7 +887,7 @@ function accText() { return G.tries ? Math.round(G.hits / G.tries * 100) + "%" :
 function updateHud() {
   $("hearts").innerHTML = "♥".repeat(Math.max(0,G.lives)) + "<i>♥</i>".repeat(3 - Math.max(0,G.lives));
   $("prog").textContent = (G.L.marathon || G.L.endless) ? String(G.hits) : `${G.hits} / ${G.L.target}`;
-  $("progBar").style.width = G.L.marathon ? Math.min(100, G.hits / Math.max(1, save.best) * 100) + "%"
+  $("progBar").style.width = G.L.marathon ? Math.min(100, G.hits / Math.max(1, P().best) * 100) + "%"
     : G.L.endless ? (G.tries ? G.hits / G.tries * 100 : 0) + "%" : (G.hits / G.L.target * 100) + "%";
   $("streakBar").style.width = (G.streak % 10) * 10 + "%";
 }
@@ -831,17 +922,17 @@ function draw() {
   ctx.save();
   if (G.shake > 0 && !reduceMotion) ctx.translate((Math.random()-.5)*8*G.shake, (Math.random()-.5)*8*G.shake);
 
-  // staff lines (E4..F5 = s 30..38)
+  // staff lines
   ctx.lineWidth = 1.2; ctx.strokeStyle = "rgba(216,178,90,.42)";
-  for (let s = 30; s <= 38; s += 2) { const y = Math.round(yOf(s, g)) + .5; ctx.beginPath(); ctx.moveTo(g.clefX, y); ctx.lineTo(W, y); ctx.stroke(); }
-  // clef: G-line is s=32 (G4)
+  for (let s = STAFF.bottom; s <= STAFF.bottom + 8; s += 2) { const y = Math.round(yOf(s, g)) + .5; ctx.beginPath(); ctx.moveTo(g.clefX, y); ctx.lineTo(W, y); ctx.stroke(); }
+  // clef
   ctx.fillStyle = "rgba(216,178,90,.9)";
-  ctx.font = `${g.hs*9.4}px "Noto Music", "Apple Symbols", "Segoe UI Symbol", serif`;
+  ctx.font = `${g.hs*CL.glyphSize}px "Noto Music", "Apple Symbols", "Segoe UI Symbol", serif`;
   ctx.textBaseline = "alphabetic";
-  ctx.fillText("𝄞", g.clefX + g.hs*.3, yOf(32, g) + g.hs*2.6);
+  ctx.fillText(CL.glyph, g.clefX + g.hs*.3, yOf(CL.glyphLine, g) + g.hs*CL.glyphDy);
 
   // hit zone
-  const zt = yOf(43, g), zb = yOf(23, g);
+  const zt = yOf(STAFF.bottom + 13, g), zb = yOf(STAFF.bottom - 7, g);
   const zg = ctx.createLinearGradient(g.hitX - g.hs*2, 0, g.hitX + g.hs*2, 0);
   zg.addColorStop(0,"rgba(216,178,90,0)"); zg.addColorStop(.5,"rgba(216,178,90,.10)"); zg.addColorStop(1,"rgba(216,178,90,0)");
   ctx.fillStyle = zg; ctx.fillRect(g.hitX - g.hs*2, zt, g.hs*4, zb - zt);
@@ -856,8 +947,8 @@ function draw() {
     marksFor(G.c).forEach(s => {
       const my = yOf(s, g);
       ctx.strokeStyle = "rgba(216,178,90,.35)"; ctx.lineWidth = 1;
-      for (let k = 28; k >= s; k -= 2) { const ly = Math.round(yOf(k, g)) + .5; ctx.beginPath(); ctx.moveTo(mx - g.hs*1.6, ly); ctx.lineTo(mx + g.hs*1.6, ly); ctx.stroke(); }
-      for (let k = 40; k <= s; k += 2) { const ly = Math.round(yOf(k, g)) + .5; ctx.beginPath(); ctx.moveTo(mx - g.hs*1.6, ly); ctx.lineTo(mx + g.hs*1.6, ly); ctx.stroke(); }
+      for (let k = STAFF.bottom - 2; k >= s; k -= 2) { const ly = Math.round(yOf(k, g)) + .5; ctx.beginPath(); ctx.moveTo(mx - g.hs*1.6, ly); ctx.lineTo(mx + g.hs*1.6, ly); ctx.stroke(); }
+      for (let k = STAFF.bottom + 10; k <= s; k += 2) { const ly = Math.round(yOf(k, g)) + .5; ctx.beginPath(); ctx.moveTo(mx - g.hs*1.6, ly); ctx.lineTo(mx + g.hs*1.6, ly); ctx.stroke(); }
       ctx.strokeStyle = "rgba(216,178,90,.55)"; ctx.lineWidth = 1.4;
       ctx.beginPath(); ctx.ellipse(mx, my, g.hs*1.1, g.hs*.78, -.35, 0, Math.PI*2); ctx.stroke();
       ctx.fillStyle = "rgba(216,178,90,.6)"; ctx.fillText(NAMES[s%7], mx + g.hs*1.8, my);
@@ -890,8 +981,8 @@ function drawNote(n, g, active) {
   // ledger lines
   ctx.strokeStyle = "rgba(216,178,90,.6)"; ctx.lineWidth = 1.3;
   const ledger = s => { const ly = Math.round(yOf(s, g)) + .5; ctx.beginPath(); ctx.moveTo(x - hs*1.9, ly); ctx.lineTo(x + hs*1.9, ly); ctx.stroke(); };
-  for (let s = 28; s >= n.s; s -= 2) ledger(s);
-  for (let s = 40; s <= n.s; s += 2) ledger(s);
+  for (let s = STAFF.bottom - 2; s >= n.s; s -= 2) ledger(s);
+  for (let s = STAFF.bottom + 10; s <= n.s; s += 2) ledger(s);
   // trail
   const tr = ctx.createLinearGradient(x, 0, x + hs*14, 0);
   tr.addColorStop(0, hexA(col, .35)); tr.addColorStop(1, hexA(col, 0));
@@ -908,7 +999,7 @@ function drawNote(n, g, active) {
   // stem: up if below middle line
   ctx.strokeStyle = active ? col : hexA(col, .7); ctx.lineWidth = Math.max(1.5, hs*.16);
   ctx.beginPath();
-  if (n.s < B4) { ctx.moveTo(x + hs*1.18, y - hs*.25); ctx.lineTo(x + hs*1.18, y - hs*7); }
+  if (n.s < STAFF.mid) { ctx.moveTo(x + hs*1.18, y - hs*.25); ctx.lineTo(x + hs*1.18, y - hs*7); }
   else { ctx.moveTo(x - hs*1.18, y + hs*.25); ctx.lineTo(x - hs*1.18, y + hs*7); }
   ctx.stroke();
   // accidental
@@ -921,7 +1012,7 @@ function drawNote(n, g, active) {
   }
   // name label for notes being learned — on the side away from the stem
   if (n.label) {
-    const txt = nameOf(n), ly = n.s < B4 ? y + hs*3.4 : y - hs*3.4;
+    const txt = nameOf(n), ly = n.s < STAFF.mid ? y + hs*3.4 : y - hs*3.4;
     ctx.font = `600 ${Math.max(13, hs*1.55)}px "Golos Text", system-ui, sans-serif`;
     const tw = ctx.measureText(txt).width, ph = Math.max(20, hs*2.4);
     ctx.fillStyle = "rgba(12,11,14,.85)"; ctx.strokeStyle = hexA(col, .7); ctx.lineWidth = 1;
@@ -933,7 +1024,7 @@ function drawNote(n, g, active) {
   // queue marker
   if (active && curQueue() > 1) {
     ctx.fillStyle = "rgba(216,178,90,.9)";
-    ctx.beginPath(); const ty = Math.min(yOf(43, g), y - hs*8.2);
+    ctx.beginPath(); const ty = Math.min(yOf(STAFF.bottom + 13, g), y - hs*8.2);
     ctx.moveTo(x - hs*.6, ty - hs*.8); ctx.lineTo(x + hs*.6, ty - hs*.8); ctx.lineTo(x, ty); ctx.fill();
   }
 }
@@ -960,7 +1051,7 @@ buildPiano();
 renderMap();
 loadSamples();
 // fonts load late — redraw clef once Noto Music is ready
-if (document.fonts && document.fonts.load) document.fonts.load('40px "Noto Music"', "𝄞♯♭").catch(() => {});
+if (document.fonts && document.fonts.load) document.fonts.load('40px "Noto Music"', "𝄞𝄢♯♭").catch(() => {});
 })();
 </script>
 </body>
