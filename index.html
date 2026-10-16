@@ -165,6 +165,14 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 .marks p { color: var(--ink); font-size: 13.5px; }
 .card .kbd-hint { font-size: 12px; color: var(--muted); }
 @media (hover: none) { .card .kbd-hint { display: none; } }
+.app.intro .piano-wrap { position: relative; z-index: 6; }
+.key.intro-key.white { background: linear-gradient(180deg, #f7e2a6, #e8c46c); animation: hint 1s ease infinite; }
+.key.intro-key.black { background: linear-gradient(180deg, #d8b25a, #8a6e2e); animation: hint 1s ease infinite; }
+.intro-where { display: flex; flex-direction: column; gap: 4px; }
+.intro-where p { color: var(--ink); }
+.intro-where p.tip { color: var(--gold); }
+.press-hint { font-size: 13px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--gold-dim); border-radius: 999px; padding: 6px 14px; align-self: center; }
+.map-foot button { background: none; border: 0; padding: 0; color: var(--gold); text-decoration: underline; font-size: 12px; }
 .card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; padding-top: 4px; }
 
 /* ---------- Piano ---------- */
@@ -251,6 +259,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
       </div>
       <p class="map-foot">Три жизни на уровень. Десять верных подряд возвращают одну.<br>
         <span class="kb-only">С клавиатуры: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> белые, <kbd>W</kbd> <kbd>E</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd> чёрные, <kbd>Пробел</kbd> пауза.<br></span>
+        <span id="introBack" hidden><button type="button" id="introBackBtn">Снова показывать знакомство с новыми нотами</button><br></span>
         Звук рояля: Salamander Grand Piano, Alexander Holm, <a href="https://creativecommons.org/licenses/by/3.0/" style="color:inherit">CC BY 3.0</a>.</p>
     </div>
   </section>
@@ -465,16 +474,53 @@ function staffSVG(notes) {
 }
 const nameOfLong = n => fullName(n);
 
+// ---------- Note introductions ----------
+const INTRO_TIPS = {
+  treble: {
+    [G4]: "Её обвивает завиток скрипичного ключа, поэтому его ещё называют ключом Соль.",
+    [C4]: "Нота «на шампуре»: одна добавочная линейка под станом.",
+    [B4]: "Ровно посередине стана, на 3-й линии.",
+    [E4]: "Нижняя линия стана.",
+    [F5]: "Верхняя линия стана.",
+    [A5]: "Одна линейка сверху: зеркало До первой октавы.",
+    [A3]: "Две линейки снизу.",
+    [F3]: "Три линейки снизу.",
+  },
+  bass: {
+    [F3]: "Две точки басового ключа обнимают её линию, поэтому его ещё называют ключом Фа.",
+    [D3]: "Ровно посередине стана, на 3-й линии.",
+    [G2]: "Нижняя линия стана.",
+    [A3]: "Верхняя линия стана.",
+    [E2]: "Одна линейка снизу.",
+    [C2]: "Две линейки снизу.",
+    [C4]: "Одна линейка сверху: зеркало Ми большой октавы.",
+    [E4]: "Две линейки сверху.",
+  },
+};
+function wherePhrase(s) {
+  const d = s - STAFF.bottom;
+  if (d >= 0 && d <= 8) return d % 2 === 0 ? `На ${d/2 + 1}-й линии.` : `${(d+1)/2 === 2 ? "Во" : "В"} ${(d+1)/2}-м промежутке.`;
+  if (d < 0) {
+    if (d === -1) return "Сразу под станом.";
+    const k = Math.ceil(-d / 2);
+    return d % 2 === 0 ? `На ${k}-й добавочной линейке снизу.` : `Под ${k - 1}-й добавочной линейкой.`;
+  }
+  const e = d - 8;
+  if (e === 1) return "Сразу над станом.";
+  return e % 2 === 0 ? `На ${e/2}-й добавочной линейке сверху.` : `Над ${(e-1)/2}-й добавочной линейкой.`;
+}
+const introKey = n => n.acc ? `acc${n.acc}` : String(n.s);
+
 // ---------- Save ----------
 const SAVE_KEY = "note-trainer-v1";
-let save = { clef:"treble", muted:false, iosTip:false, data:{} };
+let save = { clef:"treble", muted:false, iosTip:false, introOff:false, data:{} };
 try { const raw = localStorage.getItem(SAVE_KEY); if (raw) save = Object.assign(save, JSON.parse(raw)); } catch (e) {}
 // v1 kept treble progress at the top level
 if (!save.data.treble && (save.stars || save.weak)) save.data.treble = { stars: save.stars || {}, best: save.best || 0, weak: save.weak || {}, free: save.free };
 ["stars","best","weak","free"].forEach(k => delete save[k]);
 for (const k in CLEFS) {
   const d = save.data[k] = save.data[k] || {};
-  d.stars = d.stars || {}; d.best = d.best || 0; d.weak = d.weak || {};
+  d.stars = d.stars || {}; d.best = d.best || 0; d.weak = d.weak || {}; d.met = d.met || {};
   d.free = d.free || { oct:[CLEFS[k].freeDefault], acc:false, speed:1, labels:false };
 }
 if (!CLEFS[save.clef]) save.clef = "treble";
@@ -517,6 +563,7 @@ function renderMap() {
     wrap.appendChild(el);
   });
   syncSoundBtn(); renderClefSwitch(); renderPractice();
+  $("introBack").hidden = !save.introOff;
   const mOpen = marathonUnlocked();
   $("marathonCard").classList.toggle("locked", !mOpen);
   $("marathonBtn").disabled = !mOpen;
@@ -524,6 +571,7 @@ function renderMap() {
     ? `Все ноты, скорость растёт без конца. Рекорд: ${P().best}.`
     : "Все ноты, скорость растёт без конца. Откроется после финала.";
 }
+$("introBackBtn").addEventListener("click", () => { save.introOff = false; persist(); renderMap(); });
 $("marathonBtn").addEventListener("click", () => marathonUnlocked() && startLevel(-1, -1));
 
 const IS_IOS = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -738,7 +786,35 @@ function showCard(html, buttons) {
   overlay.hidden = false;
   const first = row.querySelector("button"); if (first) setTimeout(() => first.focus(), 30);
 }
-function hideCard() { overlay.hidden = true; }
+function hideCard() {
+  overlay.hidden = true; overlay.style.bottom = "";
+  document.querySelector(".app").classList.remove("intro");
+  document.querySelectorAll(".intro-key").forEach(k => k.classList.remove("intro-key"));
+}
+function showIntro(n) {
+  G.state = "intro"; G.introNote = n;
+  const keyName = n.acc ? BLACK_NAMES[pcOf(n)].replace("<br>", " / ") : NAMES[n.s % 7];
+  let title, body;
+  if (n.acc) {
+    title = n.acc > 0 ? "Новый знак: диез ♯" : "Новый знак: бемоль ♭";
+    body = `<p>Нота стоит на своём месте, а играется соседняя чёрная клавиша ${n.acc > 0 ? "справа" : "слева"}.</p>
+      <p class="tip">${nameOf(n)}: ${n.acc > 0 ? "справа" : "слева"} от ${NAMES[n.s % 7]}.</p>`;
+  } else {
+    const tip = (INTRO_TIPS[save.clef] || {})[n.s];
+    const rel = relHint(n, G.c);
+    body = `<p>${wherePhrase(n.s)}${rel !== "это опорная нота" ? ` ${rel[0].toUpperCase() + rel.slice(1)}.` : ""}</p>${tip ? `<p class="tip">${tip}</p>` : ""}`;
+    const oct = Math.floor(n.s / 7);
+    title = `Новая нота: ${fullName(n)}${oct === 1 ? "" : " октавы"}`;
+  }
+  showCard(`<h3>${title}</h3><div class="marks">${staffSVG([n])}</div><div class="intro-where">${body}</div>
+    <span class="press-hint">Нажми подсвеченную клавишу: ${keyName}</span>`,
+    [["Я знаю ноты, не показывать", "btn-ghost", () => { save.introOff = true; persist(); endIntro(); }]]);
+  document.querySelector(".app").classList.add("intro");
+  overlay.style.bottom = pianoWrap.offsetHeight + "px";
+  const k = keyEls[pcOf(n)]; if (k) k.classList.add("intro-key");
+  const b = card.querySelector(".row button"); if (b) setTimeout(() => b.blur(), 40);
+}
+function endIntro() { if (!G) return; hideCard(); G.state = "play"; G.introNote = null; }
 
 function toMap() { G = null; hideCard(); gameEl.hidden = true; pianoWrap.hidden = true; mapEl.hidden = false; renderMap(); }
 $("backBtn").addEventListener("click", toMap);
@@ -822,6 +898,7 @@ function update(dt) {
   if (G.notes.length < Q && G.spawnCd <= 0 && gapOk && (G.L.marathon || G.passed || G.hits + G.notes.length < G.L.target)) {
     const n = pickNote(); n.x = g.startX; n.born = G.t; G.notes.push(n);
     G.spawnCd = Q === 1 ? .35 : .2;
+    if (!save.introOff && !P().met[introKey(n)]) { showIntro(n); return; }
   }
   for (const n of G.notes) n.x -= speed * dt;
   // miss: leftmost reaches the hit line
@@ -831,6 +908,12 @@ function update(dt) {
 
 function press(pc) {
   if (!G) { playMidi(60 + pc, .7); return; }
+  if (G.state === "intro") {
+    const n = G.introNote;
+    if (pc === pcOf(n)) { playMidi(midiOf(n)); flashKey(pc, "ok", 260); P().met[introKey(n)] = 1; persist(); endIntro(); }
+    else { playMidi(60 + pc, .6); flashKey(pc, "bad", 260); }
+    return;
+  }
   if (G.state !== "play") { playMidi(60 + pc, .7); flashKey(pc, "down", 150); return; }
   const target = G.notes[0];
   if (!target) { playMidi(60 + pc, .7); flashKey(pc, "down", 150); return; }
@@ -1066,6 +1149,7 @@ document.addEventListener("keydown", e => {
     e.preventDefault(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     togglePause(); return;
   }
+  if ((e.code === "Enter" || e.code === "Space") && G && G.state === "intro") { e.preventDefault(); return; }
   if ((e.code === "Enter" || e.code === "Space") && G && !overlay.hidden) {
     const b = card.querySelector(".row button"); if (b && document.activeElement !== b) { e.preventDefault(); b.click(); } return;
   }
