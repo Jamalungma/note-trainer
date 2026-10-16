@@ -168,10 +168,16 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 .app.intro .piano-wrap { position: relative; z-index: 6; }
 .key.intro-key.white { background: linear-gradient(180deg, #f7e2a6, #e8c46c); animation: hint 1s ease infinite; }
 .key.intro-key.black { background: linear-gradient(180deg, #d8b25a, #8a6e2e); animation: hint 1s ease infinite; }
-.intro-where { display: flex; flex-direction: column; gap: 4px; }
-.intro-where p { color: var(--ink); }
-.intro-where p.tip { color: var(--gold); }
-.press-hint { font-size: 13px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--gold-dim); border-radius: 999px; padding: 6px 14px; align-self: center; }
+.intro-pop {
+  position: absolute; z-index: 3; width: min(340px, calc(100% - 24px)); background: var(--panel); border: 1px solid var(--gold-dim);
+  border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; text-align: center;
+  box-shadow: 0 12px 32px rgba(0,0,0,.5);
+}
+.intro-pop h4 { margin: 0; font-family: var(--f-display); font-weight: 600; font-size: 21px; line-height: 1.15; color: var(--gold); }
+.intro-pop p { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink); }
+.intro-pop p.tip { color: var(--gold); }
+.press-hint { font-size: 13px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--gold-dim); border-radius: 999px; padding: 5px 12px; align-self: center; }
+.intro-pop .optout { background: none; border: 0; padding: 2px; color: var(--muted); font-size: 12px; text-decoration: underline; align-self: center; }
 .map-foot button { background: none; border: 0; padding: 0; color: var(--gold); text-decoration: underline; font-size: 12px; }
 .card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; padding-top: 4px; }
 
@@ -281,6 +287,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
     <div class="stage" id="stage">
       <canvas id="cv"></canvas>
       <div class="toast" id="toast" hidden></div>
+      <div class="intro-pop" id="introPop" hidden></div>
     </div>
   </section>
 
@@ -806,17 +813,29 @@ function showIntro(n) {
     const oct = Math.floor(n.s / 7);
     title = `Новая нота: ${fullName(n)}${oct === 1 ? "" : " октавы"}`;
   }
-  showCard(`<h3>${title}</h3><div class="marks">${staffSVG([n])}</div><div class="intro-where">${body}</div>
-    <span class="press-hint">Нажми подсвеченную клавишу: ${keyName}</span>`,
-    [["Я знаю ноты, не показывать", "btn-ghost", () => { save.introOff = true; persist(); endIntro(); }]]);
-  document.querySelector(".app").classList.add("intro");
-  overlay.style.bottom = pianoWrap.offsetHeight + "px";
+  const pop = $("introPop");
+  pop.innerHTML = `<h4>${title}</h4>${body}<span class="press-hint">Нажми подсвеченную клавишу: ${keyName}</span>
+    <button type="button" class="optout">Я знаю ноты, не показывать</button>`;
+  pop.querySelector(".optout").addEventListener("click", () => { save.introOff = true; persist(); endIntro(); });
+  pop.hidden = false;
+  // place the bubble above or below the note so the note itself stays visible
+  // stem points up below the middle line, down above it: put the bubble on the label side, clear of the stem
+  const g = geom(), y = yOf(n.s, g), pw = pop.offsetWidth, ph = pop.offsetHeight;
+  const stemUp = n.s < STAFF.mid, gapUp = g.hs * (stemUp ? 8.2 : 5.4), gapDown = g.hs * (stemUp ? 5.4 : 8.2);
+  pop.style.left = Math.max(12, Math.min(W - pw - 12, n.x - pw / 2)) + "px";
+  const below = y + gapDown + ph <= H - 8, above = y - gapUp - ph >= 8;
+  const top = stemUp ? (below ? y + gapDown : above ? y - gapUp - ph : null) : (above ? y - gapUp - ph : below ? y + gapDown : null);
+  pop.style.top = (top === null ? Math.max(8, H - ph - 8) : top) + "px";
   const k = keyEls[pcOf(n)]; if (k) k.classList.add("intro-key");
-  const b = card.querySelector(".row button"); if (b) setTimeout(() => b.blur(), 40);
 }
-function endIntro() { if (!G) return; hideCard(); G.state = "play"; G.introNote = null; }
+function endIntro() {
+  if (!G) return;
+  $("introPop").hidden = true;
+  document.querySelectorAll(".intro-key").forEach(k => k.classList.remove("intro-key"));
+  G.state = "play"; G.introNote = null;
+}
 
-function toMap() { G = null; hideCard(); gameEl.hidden = true; pianoWrap.hidden = true; mapEl.hidden = false; renderMap(); }
+function toMap() { G = null; hideCard(); $("introPop").hidden = true; gameEl.hidden = true; pianoWrap.hidden = true; mapEl.hidden = false; renderMap(); }
 $("backBtn").addEventListener("click", toMap);
 $("pauseBtn").addEventListener("click", togglePause);
 // "Следующий уровень" button when the next level is open (or "Марафон" after the last one)
@@ -865,7 +884,7 @@ function pickNote() {
 
 // ---------- Geometry ----------
 function geom() {
-  const hs = Math.max(4, Math.min(17, H / 22, W / 40));          // half-space between line and space; 20 steps (F3..A5 ledgers) must fit
+  const hs = Math.max(4, Math.min(17, H / 22, W / 28));          // half-space between line and space; 20 steps (F3..A5 ledgers) must fit
   const midY = H/2 - hs*.5;                               // y of the middle line; keeps 7 steps below and 13 above the staff in view
   const clefX = Math.max(10, W*0.02);
   const hitX = clefX + hs*7.2;
@@ -898,9 +917,13 @@ function update(dt) {
   if (G.notes.length < Q && G.spawnCd <= 0 && gapOk && (G.L.marathon || G.passed || G.hits + G.notes.length < G.L.target)) {
     const n = pickNote(); n.x = g.startX; n.born = G.t; G.notes.push(n);
     G.spawnCd = Q === 1 ? .35 : .2;
-    if (!save.introOff && !P().met[introKey(n)]) { showIntro(n); return; }
   }
   for (const n of G.notes) n.x -= speed * dt;
+  // first meeting: stop once the new note is well inside the stage
+  if (!save.introOff) {
+    const fresh = G.notes.find(n => !n.introSeen && !P().met[introKey(n)] && n.x <= g.hitX + (g.startX - g.hitX) * .62);
+    if (fresh) { fresh.introSeen = true; showIntro(fresh); return; }
+  }
   // miss: leftmost reaches the hit line
   const first = G.notes[0];
   if (first && first.x <= g.hitX) fail(first, null);
@@ -1097,6 +1120,11 @@ function drawNote(n, g, active) {
   const tr = ctx.createLinearGradient(x, 0, x + hs*14, 0);
   tr.addColorStop(0, hexA(col, .35)); tr.addColorStop(1, hexA(col, 0));
   ctx.fillStyle = tr; ctx.beginPath(); ctx.ellipse(x + hs*7, y, hs*7, hs*.55, 0, 0, Math.PI*2); ctx.fill();
+  if (G.introNote === n) {
+    const r = hs * (2.4 + .35 * Math.sin(performance.now() / 180));
+    ctx.strokeStyle = "rgba(216,178,90,.85)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+  }
   // head
   ctx.save();
   ctx.shadowColor = col; ctx.shadowBlur = active ? 22 : 12;
