@@ -65,7 +65,14 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
   border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; min-height: 64px;
 }
 .training { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.training #freeCard { grid-column: 1 / -1; }
+.training #freeCard, .training #songsCard { grid-column: 1 / -1; }
+.song-list { display: flex; flex-direction: column; }
+.song-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; flex-wrap: wrap; }
+.song-row + .song-row { border-top: 1px solid var(--rule); }
+.song-row div { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.song-row b { font-weight: 600; font-size: 15px; }
+.song-row small { color: var(--muted); font-size: 12.5px; }
+.song-row .btn-ghost { padding: 7px 14px; font-size: 13px; }
 .training .chapter > div:last-child { margin-top: auto; }
 .lvl b { font-weight: 600; font-size: 14px; }
 .lvl small { color: var(--muted); font-size: 12px; line-height: 1.35; }
@@ -255,6 +262,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
       <h2 class="section-title">Тренировка</h2>
       <div class="training">
         <div class="chapter" id="freeCard"></div>
+        <div class="chapter" id="songsCard"></div>
         <div class="chapter" id="weakCard"></div>
         <div class="chapter" id="marathonCard">
           <div class="ch-head"><h2>Марафон</h2><span>с жизнями</span></div>
@@ -428,6 +436,59 @@ function buildFree() {
 }
 const MARATHON_BASE = { name:"Марафон", sub:"", time:6, target:Infinity, queue:1, labels:false, marathon:true };
 
+// ---------- Songs ----------
+// Public-domain melodies. Token: note+octave[:beats], e.g. "E4", "G3:2", "C5:1.5". Bass versions are shifted down by octaves.
+const SONGS = [
+  { name:"Братец Яков", by:"французская песня", notes:`
+    C4 D4 E4 C4  C4 D4 E4 C4  E4 F4 G4:2  E4 F4 G4:2
+    G4:.5 A4:.5 G4:.5 F4:.5 E4 C4  G4:.5 A4:.5 G4:.5 F4:.5 E4 C4  C4 G3 C4:2  C4 G3 C4:2` },
+  { name:"Ода к радости", by:"Бетховен", notes:`
+    B3 B3 C4 D4  D4 C4 B3 A3  G3 G3 A3 B3  B3:1.5 A3:.5 A3:2
+    B3 B3 C4 D4  D4 C4 B3 A3  G3 G3 A3 B3  A3:1.5 G3:.5 G3:2
+    B4 B4 C5 D5  D5 C5 B4 A4  G4 G4 A4 B4  B4:1.5 A4:.5 A4:2
+    B4 B4 C5 D5  D5 C5 B4 A4  G4 G4 A4 B4  A4:1.5 G4:.5 G4:2` },
+  { name:"У Мэри был барашек", by:"американская песня", notes:`
+    B3 A3 G3 A3  B3 B3 B3:2  A3 A3 A3:2  B3 D4 D4:2
+    B3 A3 G3 A3  B3 B3 B3 B3  A3 A3 B3 A3  G3:4` },
+  { name:"Маленькая звёздочка", by:"французская песня", notes:`
+    C4 C4 G4 G4  A4 A4 G4:2  F4 F4 E4 E4  D4 D4 C4:2
+    G4 G4 F4 F4  E4 E4 D4:2  G4 G4 F4 F4  E4 E4 D4:2
+    C5 C5 G5 G5  A5 A5 G5:2  F5 F5 E5 E5  D5 D5 C5:2` },
+  { name:"С днём рождения", by:"американская песня", notes:`
+    G4:.75 G4:.25 A4 G4  C5 B4:2  G4:.75 G4:.25 A4 G4  D5 C5:2
+    G4:.75 G4:.25 G5 E5  C5 B4 A4:2  F5:.75 F5:.25 E5 C5  D5 C5:2` },
+  { name:"Jingle Bells", by:"Джеймс Пьерпонт", notes:`
+    E5 E5 E5:2  E5 E5 E5:2  E5 G5 C5:1.5 D5:.5  E5:4
+    F5 F5 F5:1.5 F5:.5  F5 E5 E5 E5:.5 E5:.5  E5 D5 D5 E5  D5:2 G5:2
+    E5 E5 E5:2  E5 E5 E5:2  E5 G5 C5:1.5 D5:.5  E5:4
+    F5 F5 F5 F5  F5 E5 E5 E5:.5 E5:.5  G5 G5 F5 D5  C5:4` },
+];
+const LETTERS = { C:0, D:1, E:2, F:3, G:4, A:5, B:6 };
+function parseSong(text) {
+  return text.trim().split(/\s+/).map(t => {
+    const m = /^([A-G])([#b]?)(\d)(?::([\d.]+))?$/.exec(t);
+    return { s: +m[3] * 7 + LETTERS[m[1]], acc: m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0, beats: m[4] ? +m[4] : 1 };
+  });
+}
+// the melody for the current clef: bass clef shifts it down by whole octaves until it fits under E4
+function songNotes(i) {
+  const notes = parseSong(SONGS[i].notes);
+  if (save.clef !== "bass") return notes;
+  const max = Math.max(...notes.map(n => n.s)), k = Math.max(0, Math.ceil((max - E4) / 7));
+  return notes.map(n => ({ ...n, s: n.s - 7 * k }));
+}
+const OCT_NOM = { 2:"большая", 3:"малая", 4:"первая", 5:"вторая" };
+function songRange(i) {
+  const o = songNotes(i).map(n => Math.floor(n.s / 7)), lo = Math.min(...o), hi = Math.max(...o);
+  const name = x => OCT_NOM[x] || "";
+  return lo === hi ? `${name(lo)} октава` : `${name(lo)} – ${name(hi)}`;
+}
+function buildSong(i, tempo) {
+  const notes = songNotes(i);
+  return { name: SONGS[i].name, song: i, tempo, wait: !tempo, bpm: tempo ? 66 : 90, notes, total: notes.length,
+    target: Infinity, queue: 1, labels: false, practice: !tempo };
+}
+
 // ---------- Clefs ----------
 // bottom: diatonic step of the bottom staff line; glyph sits on glyphLine, nudged by glyphDy half-spaces.
 const CLEFS = {
@@ -580,7 +641,7 @@ function renderMap() {
     });
     wrap.appendChild(el);
   });
-  syncSoundBtn(); renderClefSwitch(); renderPractice();
+  syncSoundBtn(); renderClefSwitch(); renderPractice(); renderSongs();
   const mOpen = marathonUnlocked();
   $("marathonCard").classList.toggle("locked", !mOpen);
   $("marathonBtn").disabled = !mOpen;
@@ -605,6 +666,20 @@ function renderClefSwitch() {
   }
   $("brandClef").textContent = CL.glyph;
   $("brandSub").textContent = CL.sub;
+}
+function renderSongs() {
+  const el = $("songsCard");
+  el.innerHTML = `<div class="ch-head"><h2>Песни</h2><span>${SONGS.length} мелодий</span></div><div class="song-list"></div>`;
+  const list = el.querySelector(".song-list");
+  SONGS.forEach((song, i) => {
+    const row = document.createElement("div"); row.className = "song-row";
+    row.innerHTML = `<div><b>${song.name}</b><small>${song.by} · ${songRange(i)}</small></div>`;
+    [["Разучить", 0], ["В темпе", 1]].forEach(([label, t]) => {
+      const b = document.createElement("button"); b.className = "btn-ghost"; b.type = "button"; b.textContent = label;
+      b.addEventListener("click", () => startLevel(-4, i * 2 + t)); row.append(b);
+    });
+    list.append(row);
+  });
 }
 function renderPractice() {
   const weak = weakNotes(), wc = $("weakCard");
@@ -772,8 +847,8 @@ let G = null; // current run
 let W = 0, H = 0, DPR = 1;
 
 function startLevel(c, l) {
-  const L = c === -1 ? MARATHON : c === -2 ? buildWeak() : c === -3 ? buildFree() : CHAPTERS[c].levels[l];
-  const glowVar = c === -1 ? "--g4" : c === -2 ? "--g3" : c === -3 ? "--g2" : CHAPTERS[c].glow;
+  const L = c === -1 ? MARATHON : c === -2 ? buildWeak() : c === -3 ? buildFree() : c === -4 ? buildSong(l >> 1, l & 1) : CHAPTERS[c].levels[l];
+  const glowVar = c === -1 ? "--g4" : c === -2 ? "--g3" : c === -3 ? "--g2" : c === -4 ? "--g5" : CHAPTERS[c].glow;
   G = {
     c, l, L, glow: getComputedStyle(document.documentElement).getPropertyValue(glowVar).trim() || "#b88cff",
     notes: [], parts: [], floats: [], lives: 3, hits: 0, tries: 0, streak: 0,
@@ -783,14 +858,19 @@ function startLevel(c, l) {
   pianoEl.className = "piano" + (L.keys ? " kl-" + L.keys : "");
   $("statLives").hidden = $("statStreak").hidden = !!L.practice;
   mapEl.hidden = true; gameEl.hidden = false; pianoWrap.hidden = false;
-  $("gChapter").textContent = c === -1 ? "Марафон" : L.practice ? "Тренировка" : `Глава ${c+1} · ${CHAPTERS[c].title}`;
-  $("gTitle").textContent = c === -1 ? `Рекорд ${P().best}` : L.practice ? L.name : `${c+1}.${l+1} ${L.name}`;
+  $("gChapter").textContent = c === -1 ? "Марафон" : c === -4 ? (L.tempo ? "Песня · в темпе" : "Песня · разучить") : L.practice ? "Тренировка" : `Глава ${c+1} · ${CHAPTERS[c].title}`;
+  $("gTitle").textContent = c === -1 ? `Рекорд ${P().best}` : (L.practice || L.song !== undefined) ? L.name : `${c+1}.${l+1} ${L.name}`;
   $("progLabel").textContent = L.marathon ? "Счёт" : L.endless ? "Верно" : "Ноты";
-  syncSoundBtn(); syncHintBtn(); resize(); updateHud();
+  syncSoundBtn(); syncHintBtn(); resize();
+  if (L.song !== undefined) placeSong();
+  updateHud();
   const kb = `<p class="kbd-hint">Пробел — пауза</p>`;
   let html;
   if (c === -1) html = `<h3>Марафон</h3><p>Все октавы и знаки. Скорость растёт, очередь удлиняется. Играй, пока есть жизни.</p>${kb}`;
   else if (c === -2) html = `<h3>Трудные ноты</h3><div class="marks">${staffSVG(L.pool)}</div><p>Без жизней. Ноты подписаны при первом появлении.</p>${kb}`;
+  else if (c === -4) html = `<h3>${L.name}</h3><p>${SONGS[L.song].by} · ${songRange(L.song)}</p><p>${L.tempo
+      ? "Ноты идут в темпе песни. Три жизни."
+      : "Каждая нота ждёт у ключа, пока не нажмёшь верную клавишу. Жизней нет."}</p>${kb}`;
   else if (c === -3) html = `<h3>Свободная тренировка</h3><p>Жизней нет, конца тоже. Выйти можно стрелкой ← или через паузу.</p>${kb}`;
   else html = `<h3>${c+1}.${l+1} ${L.name}</h3>${landmarkBlock(c, l)}${describe(L)}${kb}`;
   showCard(html, [["Начать", "btn-gold", begin]]);
@@ -875,7 +955,7 @@ function togglePause() {
   if (!G) return;
   if (G.state === "play") {
     G.state = "paused";
-    showCard(`<h3>Пауза</h3><p>${G.L.marathon ? `Счёт ${G.hits}` : G.L.endless ? `Верно ${G.hits} из ${G.tries}` : `${G.hits} из ${G.L.target}`}</p>${landmarkBlock(G.c < 0 ? CHAPTERS.length - 1 : G.c, 0)}<p class="kbd-hint">Пробел — продолжить</p>`,
+    showCard(`<h3>Пауза</h3><p>${G.L.marathon ? `Счёт ${G.hits}` : G.L.endless ? `Верно ${G.hits} из ${G.tries}` : G.L.song !== undefined ? `Сыграно ${G.L.total - G.notes.length} из ${G.L.total}` : `${G.hits} из ${G.L.target}`}</p>${landmarkBlock(G.c < 0 ? CHAPTERS.length - 1 : G.c, 0)}<p class="kbd-hint">Пробел — продолжить</p>`,
       [["Продолжить","btn-gold",() => { hideCard(); G.state = "play"; }], ...nextBtn("btn-ghost"), ["К уровням","btn-ghost",toMap]]);
   } else if (G.state === "paused") { hideCard(); G.state = "play"; }
 }
@@ -932,8 +1012,34 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
+// songs: every note is laid out in advance, spaced by its length in beats
+const beatPx = g => g.hs * 8;
+function placeSong() {
+  const g = geom(); let x = g.startX;
+  G.notes = G.L.notes.map(n => { const o = { s: n.s, acc: n.acc, x }; x += Math.max(.6, n.beats) * beatPx(g); return o; });
+}
+function songUpdate(dt) {
+  const g = geom(), first = G.notes[0];
+  if (!first) return;
+  let dx = beatPx(g) * G.L.bpm / 60 * dt;
+  if (G.L.wait) { const stop = g.hitX + g.hs * 3.5; dx = Math.max(0, Math.min(dx, first.x - stop)); }
+  for (const n of G.notes) n.x -= dx;
+  if (!G.L.wait && first.x <= g.hitX) fail(first, null);
+}
+function songCheckEnd() {
+  if (G && G.L.song !== undefined && G.notes.length === 0 && G.state === "play") { G.state = "over"; setTimeout(songEnd, 500); }
+}
+function songEnd() {
+  if (!G) return;
+  const i = G.L.song, perfect = G.hits === G.L.total && G.tries === G.L.total;
+  showCard(`<h3>${perfect ? "Сыграно без ошибок" : "Песня сыграна"}</h3><p>${G.L.name}: верно ${G.hits} из ${G.L.total}.</p>`,
+    [...(G.L.tempo ? [] : [["В темпе", "btn-gold", () => startLevel(-4, i * 2 + 1)]]),
+     ["Ещё раз", G.L.tempo ? "btn-gold" : "btn-ghost", () => startLevel(-4, i * 2 + (G.L.tempo ? 1 : 0))], ["К песням", "btn-ghost", toMap]]);
+}
+
 function update(dt) {
   G.t += dt;
+  if (G.L.song !== undefined) { songUpdate(dt); return; }
   const g = geom(), T = curTime(), speed = (g.startX - g.hitX) / T, Q = curQueue();
   // spawn
   G.spawnCd -= dt;
@@ -968,6 +1074,12 @@ function press(pc) {
   if (G.state !== "play") { playMidi(60 + pc, .7); flashKey(pc, "down", 150); return; }
   const target = G.notes[0];
   if (!target) { playMidi(60 + pc, .7); flashKey(pc, "down", 150); return; }
+  if (G.L.wait && pcOf(target) !== pc) {
+    const g = geom();
+    playBuzz(); flashKey(pc, "bad", 320); hintKey(pcOf(target)); G.tries++;
+    floatText(`Это ${fullName(target)}`, Math.max(target.x, g.hitX + 60), yOf(target.s, g) - g.hs * 3.2, "#ff8f8f");
+    G.streak = 0; updateHud(); return;
+  }
   // a key pressed before a brand-new note got its introduction opens the introduction instead of costing a life
   if (introHere() && !target.introSeen && !P().met[introKey(target)]) { target.introSeen = true; showIntro(target); return; }
   if (pcOf(target) === pc) hit(target, pc); else fail(target, pc);
@@ -988,6 +1100,7 @@ function hit(n, pc) {
   if (G.notes.length === 0) G.spawnCd = Math.min(G.spawnCd, .3);
   updateHud();
   if (!G.L.marathon && !G.passed && G.hits >= G.L.target) setTimeout(win, 450);
+  songCheckEnd();
 }
 
 function fail(n, pressedPc) {
@@ -1003,7 +1116,7 @@ function fail(n, pressedPc) {
   if (!G.L.practice) G.lives--;
   bumpHearts(); updateHud();
   if (G.lives <= 0) { G.state = "over"; G.notes.length = 0; setTimeout(lose, 650); }
-  else G.spawnCd = Math.max(G.spawnCd, .9);
+  else { G.spawnCd = Math.max(G.spawnCd, .9); songCheckEnd(); }
 }
 
 function win() {
@@ -1024,6 +1137,12 @@ function win() {
 }
 function lose() {
   if (!G) return;
+  if (G.L.song !== undefined) {
+    const i = G.L.song;
+    showCard(`<h3>Жизни закончились</h3><p>${G.L.name}: верно ${G.hits} из ${G.L.total}. Попробуй сначала разучить медленно.</p>`,
+      [["Разучить", "btn-gold", () => startLevel(-4, i * 2)], ["Ещё раз", "btn-ghost", () => startLevel(-4, i * 2 + 1)], ["К песням", "btn-ghost", toMap]]);
+    return;
+  }
   if (G.L.marathon) {
     const rec = G.hits > P().best; if (rec) { P().best = G.hits; persist(); }
     showCard(`<h3>${rec ? "Новый рекорд" : "Марафон окончен"}</h3><p>Счёт ${G.hits}. Рекорд ${P().best}.</p>`,
@@ -1049,6 +1168,11 @@ function nextLevel(c, l) {
 function accText() { return G.tries ? Math.round(G.hits / G.tries * 100) + "%" : "—"; }
 function updateHud() {
   $("hearts").innerHTML = "♥".repeat(Math.max(0,G.lives)) + "<i>♥</i>".repeat(3 - Math.max(0,G.lives));
+  if (G.L.song !== undefined) {
+    const done = G.L.total - G.notes.length;
+    $("prog").textContent = `${done} / ${G.L.total}`; $("progBar").style.width = (done / G.L.total * 100) + "%";
+    $("streakBar").style.width = (G.streak % 10) * 10 + "%"; return;
+  }
   $("prog").textContent = (G.L.marathon || G.L.endless || G.passed) ? String(G.hits) : `${G.hits} / ${G.L.target}`;
   $("progBar").style.width = G.L.marathon ? Math.min(100, G.hits / Math.max(1, P().best) * 100) + "%"
     : G.L.endless ? (G.tries ? G.hits / G.tries * 100 : 0) + "%" : Math.min(100, G.hits / G.L.target * 100) + "%";
@@ -1118,7 +1242,7 @@ function draw() {
     });
   }
   // notes
-  G.notes.forEach((n, i) => drawNote(n, g, i === 0));
+  G.notes.forEach((n, i) => { if (n.x < W + g.hs * 16) drawNote(n, g, i === 0); });
 
   // particles
   for (const p of G.parts) {
@@ -1146,10 +1270,12 @@ function drawNote(n, g, active) {
   const ledger = s => { const ly = Math.round(yOf(s, g)) + .5; ctx.beginPath(); ctx.moveTo(x - hs*1.9, ly); ctx.lineTo(x + hs*1.9, ly); ctx.stroke(); };
   for (let s = STAFF.bottom - 2; s >= n.s; s -= 2) ledger(s);
   for (let s = STAFF.bottom + 10; s <= n.s; s += 2) ledger(s);
-  // trail
-  const tr = ctx.createLinearGradient(x, 0, x + hs*14, 0);
-  tr.addColorStop(0, hexA(col, .35)); tr.addColorStop(1, hexA(col, 0));
-  ctx.fillStyle = tr; ctx.beginPath(); ctx.ellipse(x + hs*7, y, hs*7, hs*.55, 0, 0, Math.PI*2); ctx.fill();
+  // trail (not in songs: the melody's notes sit close together)
+  if (G.L.song === undefined) {
+    const tr = ctx.createLinearGradient(x, 0, x + hs*14, 0);
+    tr.addColorStop(0, hexA(col, .35)); tr.addColorStop(1, hexA(col, 0));
+    ctx.fillStyle = tr; ctx.beginPath(); ctx.ellipse(x + hs*7, y, hs*7, hs*.55, 0, 0, Math.PI*2); ctx.fill();
+  }
   if (G.introNote === n) {
     const r = hs * (2.4 + .35 * Math.sin(performance.now() / 180));
     ctx.strokeStyle = "rgba(216,178,90,.85)"; ctx.lineWidth = 2;
