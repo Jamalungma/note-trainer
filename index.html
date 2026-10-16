@@ -177,6 +177,8 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 .intro-pop p { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink); }
 .intro-pop p.tip { color: var(--gold); }
 .press-hint { font-size: 13px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--gold-dim); border-radius: 999px; padding: 5px 12px; align-self: center; }
+.intro-pop .pop-row { display: flex; justify-content: center; }
+.intro-pop .pop-ok { padding: 7px 22px; font-size: 14px; }
 .intro-pop .optout { background: none; border: 0; padding: 2px; color: var(--muted); font-size: 12px; text-decoration: underline; align-self: center; }
 .map-foot button { background: none; border: 0; padding: 0; color: var(--gold); text-decoration: underline; font-size: 12px; }
 .card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; padding-top: 4px; }
@@ -814,8 +816,10 @@ function showIntro(n) {
     title = `Новая нота: ${fullName(n)}${oct === 1 ? "" : " октавы"}`;
   }
   const pop = $("introPop");
-  pop.innerHTML = `<h4>${title}</h4>${body}<span class="press-hint">Нажми подсвеченную клавишу: ${keyName}</span>
+  pop.innerHTML = `<h4>${title}</h4>${body}<span class="press-hint">Нажми подсвеченную клавишу ${keyName}: это и будет ответ</span>
+    <div class="pop-row"><button type="button" class="btn-ghost pop-ok">Понятно</button></div>
     <button type="button" class="optout">Я знаю ноты, не показывать</button>`;
+  pop.querySelector(".pop-ok").addEventListener("click", () => { P().met[introKey(n)] = 1; persist(); endIntro(); });
   pop.querySelector(".optout").addEventListener("click", () => { save.introOff = true; persist(); endIntro(); });
   pop.hidden = false;
   // place the bubble above or below the note so the note itself stays visible
@@ -933,7 +937,10 @@ function press(pc) {
   if (!G) { playMidi(60 + pc, .7); return; }
   if (G.state === "intro") {
     const n = G.introNote;
-    if (pc === pcOf(n)) { playMidi(midiOf(n)); flashKey(pc, "ok", 260); P().met[introKey(n)] = 1; persist(); endIntro(); }
+    if (pc === pcOf(n)) {
+      P().met[introKey(n)] = 1; persist(); endIntro();
+      if (G.notes[0] === n) hit(n, pc); else { playMidi(midiOf(n)); flashKey(pc, "ok", 260); }
+    }
     else { playMidi(60 + pc, .6); flashKey(pc, "bad", 260); }
     return;
   }
@@ -1179,7 +1186,7 @@ document.addEventListener("keydown", e => {
     e.preventDefault(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     togglePause(); return;
   }
-  if ((e.code === "Enter" || e.code === "Space") && G && G.state === "intro") { e.preventDefault(); return; }
+  if ((e.code === "Enter" || e.code === "Space") && G && G.state === "intro") { e.preventDefault(); const b = document.querySelector("#introPop .pop-ok"); if (b) b.click(); return; }
   if ((e.code === "Enter" || e.code === "Space") && G && !overlay.hidden) {
     const b = card.querySelector(".row button"); if (b && document.activeElement !== b) { e.preventDefault(); b.click(); } return;
   }
