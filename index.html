@@ -816,7 +816,7 @@ function showIntro(n) {
     title = `Новая нота: ${fullName(n)}${oct === 1 ? "" : " октавы"}`;
   }
   const pop = $("introPop");
-  pop.innerHTML = `<h4>${title}</h4>${body}<span class="press-hint">Нажми подсвеченную клавишу ${keyName}: это и будет ответ</span>
+  pop.innerHTML = `<h4>${title}</h4>${body}<span class="press-hint">Нажми клавишу ${keyName} — это и будет ответ</span>
     <div class="pop-row"><button type="button" class="btn-ghost pop-ok">Понятно</button></div>
     <button type="button" class="optout">Я знаю ноты, не показывать</button>`;
   pop.querySelector(".pop-ok").addEventListener("click", () => { P().met[introKey(n)] = 1; persist(); endIntro(); });
@@ -826,10 +826,15 @@ function showIntro(n) {
   // stem points up below the middle line, down above it: put the bubble on the label side, clear of the stem
   const g = geom(), y = yOf(n.s, g), pw = pop.offsetWidth, ph = pop.offsetHeight;
   const stemUp = n.s < STAFF.mid, gapUp = g.hs * (stemUp ? 8.2 : 5.4), gapDown = g.hs * (stemUp ? 5.4 : 8.2);
-  pop.style.left = Math.max(12, Math.min(W - pw - 12, n.x - pw / 2)) + "px";
-  const below = y + gapDown + ph <= H - 8, above = y - gapUp - ph >= 8;
-  const top = stemUp ? (below ? y + gapDown : above ? y - gapUp - ph : null) : (above ? y - gapUp - ph : below ? y + gapDown : null);
-  pop.style.top = (top === null ? Math.max(8, H - ph - 8) : top) + "px";
+  // centred on the stage; the new note enters at the right edge, so it stays clear unless the screen is narrow
+  const left = Math.max(12, (W - pw) / 2);
+  pop.style.left = left + "px";
+  if (n.x - g.hs * 4 > left + pw) { pop.style.top = Math.max(8, (H - ph) / 2) + "px"; }
+  else {
+    const below = y + gapDown + ph <= H - 8, above = y - gapUp - ph >= 8;
+    const top = stemUp ? (below ? y + gapDown : above ? y - gapUp - ph : null) : (above ? y - gapUp - ph : below ? y + gapDown : null);
+    pop.style.top = (top === null ? Math.max(8, H - ph - 8) : top) + "px";
+  }
   const k = keyEls[pcOf(n)]; if (k) k.classList.add("intro-key");
 }
 function endIntro() {
