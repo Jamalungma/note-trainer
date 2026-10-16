@@ -75,10 +75,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 .lvl:disabled { cursor: default; opacity: .5; }
 .lvl.next { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
 .marathon { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 -4px; }
-.ch-tools { display: flex; align-items: center; gap: 10px; }
-.chip.chip-sm { padding: 4px 10px; font-size: 12px; letter-spacing: 0; text-transform: none; }
-.section-title { margin: 0; font-family: var(--f-display); font-weight: 600; font-size: 22px; color: var(--gold); }
+.section-title { margin: 8px 0 -4px; font-family: var(--f-display); font-weight: 600; font-size: 22px; color: var(--gold); }
 .map-inner { position: relative; }
 .clef-switch { display: flex; justify-content: center; gap: 0; margin-top: -8px; }
 .clef-switch button {
@@ -123,7 +120,8 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 }
 .icon-btn { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--rule); background: var(--panel-2); display: grid; place-items: center; font-size: 16px; flex: none; }
 .bar-top { display: flex; align-items: center; gap: 12px; flex: 1 1 260px; min-width: 0; }
-.bar-top #soundBtn { margin-left: auto; }
+.bar-top #hintBtn { margin-left: auto; }
+.icon-btn.on { color: var(--gold); border-color: var(--gold-dim); }
 .bar .title { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
 .bar .title small { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .bar .title b { font-family: var(--f-display); font-size: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -258,7 +256,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
       </header>
       <div class="clef-switch" id="clefSwitch" role="tablist" aria-label="Ключ"></div>
       <div id="chapters" style="display:flex;flex-direction:column;gap:16px"></div>
-      <div class="section-head"><h2 class="section-title">Тренировка</h2><span id="trainIntro"></span></div>
+      <h2 class="section-title">Тренировка</h2>
       <div class="training">
         <div class="chapter" id="freeCard"></div>
         <div class="chapter" id="weakCard"></div>
@@ -279,6 +277,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
       <div class="bar-top">
         <button class="icon-btn" id="backBtn" aria-label="К уровням">←</button>
         <div class="title"><small id="gChapter">Глава 1</small><b id="gTitle">До–Соль</b></div>
+        <button class="icon-btn" id="hintBtn" aria-label="Подсказки о новых нотах"></button>
         <button class="icon-btn" id="soundBtn" aria-label="Звук"></button>
         <button class="icon-btn" id="pauseBtn" aria-label="Пауза">❚❚</button>
       </div>
@@ -567,9 +566,8 @@ function renderMap() {
     const el = document.createElement("div");
     el.className = "chapter" + (open ? "" : " locked");
     const earned = ch.levels.reduce((a, _, l) => a + (P().stars[lvKey(c,l)] || 0), 0);
-    el.innerHTML = `<div class="ch-head"><h2>${ch.title}</h2><div class="ch-tools"><span>${earned} / ${ch.levels.length*3} ★</span></div></div>
+    el.innerHTML = `<div class="ch-head"><h2>${ch.title}</h2><span>${earned} / ${ch.levels.length*3} ★</span></div>
       <div class="levels"></div>`;
-    el.querySelector(".ch-tools").prepend(introChip(c));
     const lv = el.querySelector(".levels");
     ch.levels.forEach((L, l) => {
       const b = document.createElement("button"); b.className = "lvl";
@@ -583,19 +581,12 @@ function renderMap() {
     wrap.appendChild(el);
   });
   syncSoundBtn(); renderClefSwitch(); renderPractice();
-  $("trainIntro").replaceChildren(introChip(-1));
   const mOpen = marathonUnlocked();
   $("marathonCard").classList.toggle("locked", !mOpen);
   $("marathonBtn").disabled = !mOpen;
   $("marathonDesc").textContent = mOpen
     ? `Все ноты, скорость растёт без конца. Рекорд: ${P().best}.`
     : "Все ноты, скорость растёт без конца. Откроется после финала.";
-}
-function introChip(c) {
-  const b = chip("Подсказки", introOn(c), () => { setIntro(c, !introOn(c)); renderMap(); });
-  b.classList.add("chip-sm");
-  b.title = "Знакомство с новыми нотами: где стоит нота и как её найти";
-  return b;
 }
 $("marathonBtn").addEventListener("click", () => marathonUnlocked() && startLevel(-1, -1));
 
@@ -757,6 +748,21 @@ function syncSoundBtn() {
   });
 }
 ["soundBtn", "mapSoundBtn"].forEach(id => $(id).addEventListener("click", () => { save.muted = !save.muted; persist(); syncSoundBtn(); audio(); }));
+const ICON_HINT = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>';
+function syncHintBtn() {
+  if (!G) return;
+  const b = $("hintBtn"), on = introOn(G.c);
+  b.innerHTML = ICON_HINT + (on ? "" : '<path d="M3 3l18 18"/>') + "</svg>";
+  b.classList.toggle("on", on);
+  b.setAttribute("aria-pressed", on ? "true" : "false");
+  b.title = on ? "Подсказки о новых нотах включены" : "Подсказки о новых нотах выключены";
+}
+$("hintBtn").addEventListener("click", () => {
+  if (!G) return;
+  const on = !introOn(G.c); setIntro(G.c, on); syncHintBtn();
+  if (!on && G.state === "intro") endIntro();
+  toast(`Подсказки о новых нотах ${on ? "включены" : "выключены"} ${G.c >= 0 ? "в этой главе" : "в тренировках"}`, 2500);
+});
 let toastT = 0;
 function toast(text, ms = 6000) {
   const t = $("toast"); t.textContent = text; t.hidden = false;
@@ -782,7 +788,7 @@ function startLevel(c, l) {
   $("gChapter").textContent = c === -1 ? "Марафон" : L.practice ? "Тренировка" : `Глава ${c+1} · ${CHAPTERS[c].title}`;
   $("gTitle").textContent = c === -1 ? `Рекорд ${P().best}` : L.practice ? L.name : `${c+1}.${l+1} ${L.name}`;
   $("progLabel").textContent = L.marathon ? "Счёт" : L.endless ? "Верно" : "Ноты";
-  syncSoundBtn(); resize(); updateHud();
+  syncSoundBtn(); syncHintBtn(); resize(); updateHud();
   const kb = `<p class="kbd-hint">Пробел — пауза и подсказка</p>`;
   let html;
   if (c === -1) html = `<h3>Марафон</h3><p>Все октавы и знаки. Скорость растёт, очередь удлиняется. Играй, пока есть жизни.</p>${kb}`;
@@ -836,7 +842,7 @@ function showIntro(n) {
     <div class="pop-row"><button type="button" class="btn-ghost pop-ok">Понятно</button></div>
     <button type="button" class="optout">Не показывать ${G.c >= 0 ? "в этой главе" : "в тренировках"}</button>`;
   pop.querySelector(".pop-ok").addEventListener("click", () => { P().met[introKey(n)] = 1; persist(); endIntro(); });
-  pop.querySelector(".optout").addEventListener("click", () => { setIntro(G.c, false); endIntro(); });
+  pop.querySelector(".optout").addEventListener("click", () => { setIntro(G.c, false); syncHintBtn(); endIntro(); });
   pop.hidden = false;
   // place the bubble above or below the note so the note itself stays visible
   // stem points up below the middle line, down above it: put the bubble on the label side, clear of the stem
