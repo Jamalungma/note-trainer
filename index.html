@@ -351,8 +351,9 @@ const TREBLE_CHAPTERS = [
     marks:[F3, A3, C4], tip:"Линейки снизу: одна — До, две — Ля, три — Фа.",
     levels:[
       { name:"Ля, Си и До", sub:"ноты подписаны", pool:[...naturals(A3,B3), {s:C4,acc:0}], time:7.5, target:12, queue:1, labels:true },
-      { name:"Соль – Си", sub:"Соль подписана", pool:naturals(G3,B3).concat({s:C4,acc:0}), time:6.5, target:15, queue:1, labels:[G3] },
-      { name:"Фа – Си + повтор", sub:"три линейки, Фа подписана", pool:naturals(F3,B3), review:naturals(C4,B5), time:6, target:18, queue:1, labels:[F3] },
+      { name:"Фа – До", sub:"Фа и Соль подписаны", pool:naturals(F3,C4), time:7, target:15, queue:1, labels:[F3,G3] },
+      { name:"Быстрее", sub:"без очереди", pool:naturals(F3,C4), time:5.5, target:15, queue:1, labels:false },
+      { name:"Очередь + повтор", sub:"по две, немного прошлого", pool:naturals(F3,C4), review:naturals(C4,B5), time:5.5, target:18, queue:2, labels:false },
     ]},
   { title:"Диезы и бемоли", glow:"--g4", desc:"Чёрные клавиши. Соль♯ и Ля♭ это одна клавиша, засчитываем обе.",
     marks:[F4, B4], showMarks:[{s:F4,acc:1},{s:B4,acc:-1}], tip:"♯ — соседняя клавиша справа, ♭ — слева. Соль♯ и Ля♭ — одна клавиша.",
@@ -392,8 +393,9 @@ const BASS_CHAPTERS = [
     marks:[A3, C4, E4], tip:"Линейки сверху: одна — До, две — Ми.",
     levels:[
       { name:"Си, До и Ре", sub:"ноты подписаны", pool:[{s:B3,acc:0}, ...naturals(C4,D4)], time:7.5, target:12, queue:1, labels:true },
-      { name:"До – Ми", sub:"Ми подписана", pool:naturals(B3,E4), time:6.5, target:15, queue:1, labels:[E4] },
-      { name:"До – Ми + повтор", sub:"немного прошлого", pool:naturals(C4,E4), review:naturals(C2,B3), time:6, target:18, queue:1, labels:false },
+      { name:"Си – Ми", sub:"Ми подписана", pool:naturals(B3,E4), time:7, target:15, queue:1, labels:[E4] },
+      { name:"Быстрее", sub:"без очереди", pool:naturals(B3,E4), time:5.5, target:15, queue:1, labels:false },
+      { name:"Очередь + повтор", sub:"по две, немного прошлого", pool:naturals(B3,E4), review:naturals(C2,B3), time:5.5, target:18, queue:2, labels:false },
     ]},
   { title:"Диезы и бемоли", glow:"--g4", desc:"Чёрные клавиши. Соль♯ и Ля♭ это одна клавиша, засчитываем обе.",
     marks:[F3, B2], showMarks:[{s:F3,acc:1},{s:B2,acc:-1}], tip:"♯ — соседняя клавиша справа, ♭ — слева. Соль♯ и Ля♭ — одна клавиша.",
