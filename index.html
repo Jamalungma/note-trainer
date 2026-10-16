@@ -161,9 +161,8 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 .card p { margin: 0; color: var(--muted); line-height: 1.5; font-size: 14px; }
 .card .big-stars { font-size: 30px; color: var(--gold); letter-spacing: 6px; }
 .card .big-stars i { font-style: normal; color: #3a3328; }
-.marks { display: flex; flex-direction: column; gap: 6px; background: var(--panel-2); border: 1px solid var(--rule); border-radius: 12px; padding: 10px 12px; }
-.marks small { color: var(--muted); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
-.marks p { color: var(--ink); font-size: 13.5px; }
+.marks { display: flex; flex-direction: column; gap: 8px; }
+.marks p { color: var(--ink); font-size: 14px; }
 .card .kbd-hint { font-size: 12px; color: var(--muted); }
 @media (hover: none) { .card .kbd-hint { display: none; } }
 .app.intro .piano-wrap { position: relative; z-index: 6; }
@@ -176,8 +175,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 }
 .intro-pop h4 { margin: 0; font-family: var(--f-display); font-weight: 600; font-size: 21px; line-height: 1.15; color: var(--gold); }
 .intro-pop p { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink); }
-.intro-pop p.tip { color: var(--gold); }
-.press-hint { font-size: 13px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--gold-dim); border-radius: 999px; padding: 5px 12px; align-self: center; }
+.press-hint { font-size: 13px; color: var(--muted); }
 .intro-pop .optout { background: none; border: 0; padding: 2px; color: var(--muted); font-size: 12px; text-decoration: underline; align-self: center; }
 .map-foot button { background: none; border: 0; padding: 0; color: var(--gold); text-decoration: underline; font-size: 12px; }
 .card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; padding-top: 4px; }
@@ -334,7 +332,7 @@ const C2=st(0,2), D2=st(1,2), E2=st(2,2), G2=st(4,2), A2=st(5,2), B2=st(6,2), D3
 // time: seconds for a note to cross the stage at the start of the level (ramps ~15% faster by the end)
 const TREBLE_CHAPTERS = [
   { title:"Первая октава", glow:"--g1", desc:"Сердце скрипичного ключа: от До на добавочной линейке до Си на третьей линии.",
-    marks:[C4, G4, B4], tip:"Завиток ключа обвивает 2-ю линию: это Соль. До стоит на линейке снизу, Си ровно посередине стана. Остальные ноты в шаге от них.",
+    marks:[C4, G4, B4], tip:"Завиток ключа обвивает Соль. До — на линейке снизу, Си — посередине стана.",
     levels:[
       { name:"До – Соль", sub:"медленно, ноты подписаны", pool:naturals(C4,G4), time:7.5, target:12, queue:1, labels:true },
       { name:"Вся октава", sub:"Ля и Си подписаны", pool:naturals(C4,B4), time:7, target:15, queue:1, labels:[A4,B4] },
@@ -342,7 +340,7 @@ const TREBLE_CHAPTERS = [
       { name:"Очередь", sub:"по две ноты", pool:naturals(C4,B4), time:5.5, target:18, queue:2, labels:false },
     ]},
   { title:"Вторая октава", glow:"--g2", desc:"Верх стана и добавочные линейки над ним.",
-    marks:[C5, F5, A5], tip:"До второй октавы в 3-м промежутке, Фа на верхней линии, Ля на линейке сверху: зеркало До первой.",
+    marks:[C5, F5, A5], tip:"До — в 3-м промежутке, Фа — на верхней линии, Ля — на линейке сверху.",
     levels:[
       { name:"До – Соль", sub:"медленно, ноты подписаны", pool:naturals(C5,G5), time:7.5, target:12, queue:1, labels:true },
       { name:"Вся октава", sub:"линейка сверху, Ля и Си подписаны", pool:naturals(C5,B5), time:7, target:15, queue:1, labels:[A5,B5] },
@@ -350,21 +348,21 @@ const TREBLE_CHAPTERS = [
       { name:"Очередь + повтор", sub:"по две, немного первой", pool:naturals(C5,B5), review:naturals(C4,B4), time:5.5, target:18, queue:2, labels:false },
     ]},
   { title:"Малая октава", glow:"--g3", desc:"Ноты под станом на добавочных линейках.",
-    marks:[F3, A3, C4], tip:"Считай линейки снизу: одна это До первой, две это Ля малой, три это Фа малой.",
+    marks:[F3, A3, C4], tip:"Линейки снизу: одна — До, две — Ля, три — Фа.",
     levels:[
       { name:"Ля, Си и До", sub:"ноты подписаны", pool:[...naturals(A3,B3), {s:C4,acc:0}], time:7.5, target:12, queue:1, labels:true },
       { name:"Соль – Си", sub:"Соль подписана", pool:naturals(G3,B3).concat({s:C4,acc:0}), time:6.5, target:15, queue:1, labels:[G3] },
       { name:"Фа – Си + повтор", sub:"три линейки, Фа подписана", pool:naturals(F3,B3), review:naturals(C4,B5), time:6, target:18, queue:1, labels:[F3] },
     ]},
   { title:"Диезы и бемоли", glow:"--g4", desc:"Чёрные клавиши. Соль♯ и Ля♭ это одна клавиша, засчитываем обе.",
-    marks:[F4, B4], showMarks:[{s:F4,acc:1},{s:B4,acc:-1}], tip:"Нота стоит на своём месте, знак только сдвигает клавишу: ♯ на соседнюю справа, ♭ на соседнюю слева. Соль♯ и Ля♭ это одна клавиша, засчитываем обе.",
+    marks:[F4, B4], showMarks:[{s:F4,acc:1},{s:B4,acc:-1}], tip:"♯ — соседняя клавиша справа, ♭ — слева. Соль♯ и Ля♭ — одна клавиша.",
     levels:[
       { name:"Диезы", sub:"первая октава, подписаны", pool:withAcc(C4,B4,1), review:naturals(C4,B4), reviewShare:.35, time:7, target:15, queue:1, labels:true },
       { name:"Бемоли", sub:"первая октава, подписаны", pool:withAcc(C4,B4,-1), review:naturals(C4,B4), reviewShare:.35, time:6.5, target:15, queue:1, labels:true },
       { name:"Все знаки", sub:"первая и вторая октавы", pool:[...withAcc(C4,B5,1), ...withAcc(C4,B5,-1)], review:naturals(C4,B5), reviewShare:.35, time:6, target:18, queue:1, labels:false },
     ]},
   { title:"Финал", glow:"--g5", desc:"Все октавы вместе, быстрее и очередями.",
-    marks:[A3, C4, G4, B4, C5, F5, A5], tip:"Найди ближайший маяк и посчитай шаги: линия, промежуток, линия.",
+    marks:[A3, C4, G4, B4, C5, F5, A5], tip:"Найди ближайшую опорную ноту и посчитай шаги.",
     levels:[
       { name:"Все ноты", sub:"очередь из двух", pool:naturals(F3,B5), time:5.5, target:20, queue:2, labels:false },
       { name:"Со знаками", sub:"очередь из двух", pool:[...naturals(F3,B5), ...withAcc(C4,B5,1), ...withAcc(C4,B5,-1)], time:5, target:20, queue:2, labels:false },
@@ -375,7 +373,7 @@ const TREBLE_CHAPTERS = [
 // Bass clef: lines G2 B2 D3 F3 A3 (s 18..26), middle line D3.
 const BASS_CHAPTERS = [
   { title:"Малая октава", glow:"--g1", desc:"Сердце басового ключа: от До во 2-м промежутке до Си над станом.",
-    marks:[C3, F3, A3], tip:"Две точки басового ключа обнимают 4-ю линию: это Фа малой. До малой во 2-м промежутке, Ля на верхней линии. Остальные ноты в шаге от них.",
+    marks:[C3, F3, A3], tip:"Точки ключа обнимают Фа. До — во 2-м промежутке, Ля — на верхней линии.",
     levels:[
       { name:"До – Соль", sub:"медленно, ноты подписаны", pool:naturals(C3,G3), time:7.5, target:12, queue:1, labels:true },
       { name:"Вся октава", sub:"Ля и Си подписаны", pool:naturals(C3,B3), time:7, target:15, queue:1, labels:[A3,B3] },
@@ -383,7 +381,7 @@ const BASS_CHAPTERS = [
       { name:"Очередь", sub:"по две ноты", pool:naturals(C3,B3), time:5.5, target:18, queue:2, labels:false },
     ]},
   { title:"Большая октава", glow:"--g2", desc:"Низ стана и добавочные линейки под ним.",
-    marks:[C2, E2, G2], tip:"Соль большой на нижней линии, Ми на линейке снизу, До на двух линейках снизу.",
+    marks:[C2, E2, G2], tip:"Соль — на нижней линии, Ми — на линейке снизу, До — на двух линейках снизу.",
     levels:[
       { name:"Ми – Си", sub:"медленно, ноты подписаны", pool:naturals(E2,B2), time:7.5, target:12, queue:1, labels:true },
       { name:"Вся октава", sub:"две линейки, До и Ре подписаны", pool:naturals(C2,B2), time:7, target:15, queue:1, labels:[C2,D2] },
@@ -391,21 +389,21 @@ const BASS_CHAPTERS = [
       { name:"Очередь + повтор", sub:"по две, немного малой", pool:naturals(C2,B2), review:naturals(C3,B3), time:5.5, target:18, queue:2, labels:false },
     ]},
   { title:"Первая октава", glow:"--g3", desc:"Ноты над станом на добавочных линейках.",
-    marks:[A3, C4, E4], tip:"Считай линейки сверху: одна это До первой, две это Ми первой. До первой — зеркало Ми большой.",
+    marks:[A3, C4, E4], tip:"Линейки сверху: одна — До, две — Ми.",
     levels:[
       { name:"Си, До и Ре", sub:"ноты подписаны", pool:[{s:B3,acc:0}, ...naturals(C4,D4)], time:7.5, target:12, queue:1, labels:true },
       { name:"До – Ми", sub:"Ми подписана", pool:naturals(B3,E4), time:6.5, target:15, queue:1, labels:[E4] },
       { name:"До – Ми + повтор", sub:"немного прошлого", pool:naturals(C4,E4), review:naturals(C2,B3), time:6, target:18, queue:1, labels:false },
     ]},
   { title:"Диезы и бемоли", glow:"--g4", desc:"Чёрные клавиши. Соль♯ и Ля♭ это одна клавиша, засчитываем обе.",
-    marks:[F3, B2], showMarks:[{s:F3,acc:1},{s:B2,acc:-1}], tip:"Нота стоит на своём месте, знак только сдвигает клавишу: ♯ на соседнюю справа, ♭ на соседнюю слева. Соль♯ и Ля♭ это одна клавиша, засчитываем обе.",
+    marks:[F3, B2], showMarks:[{s:F3,acc:1},{s:B2,acc:-1}], tip:"♯ — соседняя клавиша справа, ♭ — слева. Соль♯ и Ля♭ — одна клавиша.",
     levels:[
       { name:"Диезы", sub:"малая октава, подписаны", pool:withAcc(C3,B3,1), review:naturals(C3,B3), reviewShare:.35, time:7, target:15, queue:1, labels:true },
       { name:"Бемоли", sub:"малая октава, подписаны", pool:withAcc(C3,B3,-1), review:naturals(C3,B3), reviewShare:.35, time:6.5, target:15, queue:1, labels:true },
       { name:"Все знаки", sub:"большая и малая октавы", pool:[...withAcc(C2,B3,1), ...withAcc(C2,B3,-1)], review:naturals(C2,B3), reviewShare:.35, time:6, target:18, queue:1, labels:false },
     ]},
   { title:"Финал", glow:"--g5", desc:"Все октавы вместе, быстрее и очередями.",
-    marks:[C2, E2, G2, C3, F3, A3, C4, E4], tip:"Найди ближайший маяк и посчитай шаги: линия, промежуток, линия.",
+    marks:[C2, E2, G2, C3, F3, A3, C4, E4], tip:"Найди ближайшую опорную ноту и посчитай шаги.",
     levels:[
       { name:"Все ноты", sub:"очередь из двух", pool:naturals(C2,E4), time:5.5, target:20, queue:2, labels:false },
       { name:"Со знаками", sub:"очередь из двух", pool:[...naturals(C2,E4), ...withAcc(C2,B3,1), ...withAcc(C2,B3,-1)], time:5, target:20, queue:2, labels:false },
@@ -485,24 +483,24 @@ const nameOfLong = n => fullName(n);
 // ---------- Note introductions ----------
 const INTRO_TIPS = {
   treble: {
-    [G4]: "Её обвивает завиток скрипичного ключа, поэтому его ещё называют ключом Соль.",
-    [C4]: "Нота «на шампуре»: одна добавочная линейка под станом.",
-    [B4]: "Ровно посередине стана, на 3-й линии.",
-    [E4]: "Нижняя линия стана.",
-    [F5]: "Верхняя линия стана.",
-    [A5]: "Одна линейка сверху: зеркало До первой октавы.",
-    [A3]: "Две линейки снизу.",
-    [F3]: "Три линейки снизу.",
+    [G4]: "2-я линия — её обвивает завиток ключа.",
+    [C4]: "Линейка под станом.",
+    [B4]: "3-я линия, середина стана.",
+    [E4]: "1-я, нижняя линия.",
+    [F5]: "5-я, верхняя линия.",
+    [A5]: "Линейка над станом — зеркало До первой.",
+    [A3]: "Вторая линейка под станом.",
+    [F3]: "Третья линейка под станом.",
   },
   bass: {
-    [F3]: "Две точки басового ключа обнимают её линию, поэтому его ещё называют ключом Фа.",
-    [D3]: "Ровно посередине стана, на 3-й линии.",
-    [G2]: "Нижняя линия стана.",
-    [A3]: "Верхняя линия стана.",
-    [E2]: "Одна линейка снизу.",
-    [C2]: "Две линейки снизу.",
-    [C4]: "Одна линейка сверху: зеркало Ми большой октавы.",
-    [E4]: "Две линейки сверху.",
+    [F3]: "4-я линия — её обнимают точки ключа.",
+    [D3]: "3-я линия, середина стана.",
+    [G2]: "1-я, нижняя линия.",
+    [A3]: "5-я, верхняя линия.",
+    [E2]: "Линейка под станом.",
+    [C2]: "Вторая линейка под станом.",
+    [C4]: "Линейка над станом — зеркало Ми большой.",
+    [E4]: "Вторая линейка над станом.",
   },
 };
 function wherePhrase(s) {
@@ -584,9 +582,7 @@ function renderMap() {
   const mOpen = marathonUnlocked();
   $("marathonCard").classList.toggle("locked", !mOpen);
   $("marathonBtn").disabled = !mOpen;
-  $("marathonDesc").textContent = mOpen
-    ? `Все ноты, скорость растёт без конца. Рекорд: ${P().best}.`
-    : "Все ноты, скорость растёт без конца. Откроется после финала.";
+  $("marathonDesc").textContent = `Все ноты, скорость растёт без конца. Рекорд: ${P().best}.`;
 }
 $("marathonBtn").addEventListener("click", () => marathonUnlocked() && startLevel(-1, -1));
 
@@ -619,7 +615,6 @@ function renderPractice() {
 
   const f = P().free, fc = $("freeCard");
   fc.innerHTML = `<div class="ch-head"><h2>Свободная тренировка</h2><span>без жизней</span></div>
-    <p class="ch-desc">Выбери ноты и скорость. Играй сколько хочешь.</p>
     <div class="opt-row" id="optOct"><span>Октавы</span></div>
     <div class="opt-row" id="optMore"><span>Ещё</span></div>
     <div class="opt-row" id="optSpeed"><span>Скорость</span></div>
@@ -790,10 +785,10 @@ function startLevel(c, l) {
   $("gTitle").textContent = c === -1 ? `Рекорд ${P().best}` : L.practice ? L.name : `${c+1}.${l+1} ${L.name}`;
   $("progLabel").textContent = L.marathon ? "Счёт" : L.endless ? "Верно" : "Ноты";
   syncSoundBtn(); syncHintBtn(); resize(); updateHud();
-  const kb = `<p class="kbd-hint">Пробел — пауза и подсказка</p>`;
+  const kb = `<p class="kbd-hint">Пробел — пауза</p>`;
   let html;
   if (c === -1) html = `<h3>Марафон</h3><p>Все октавы и знаки. Скорость растёт, очередь удлиняется. Играй, пока есть жизни.</p>${kb}`;
-  else if (c === -2) html = `<h3>Трудные ноты</h3><div class="marks"><small>Твои трудные ноты</small>${staffSVG(L.pool)}</div><p>Жизней нет. Каждая нота при первом появлении подписана.</p>${kb}`;
+  else if (c === -2) html = `<h3>Трудные ноты</h3><div class="marks">${staffSVG(L.pool)}</div><p>Без жизней. Ноты подписаны при первом появлении.</p>${kb}`;
   else if (c === -3) html = `<h3>Свободная тренировка</h3><p>Жизней нет, конца тоже. Выйти можно стрелкой ← или через паузу.</p>${kb}`;
   else html = `<h3>${c+1}.${l+1} ${L.name}</h3>${landmarkBlock(c, l)}${describe(L)}${kb}`;
   showCard(html, [["Начать", "btn-gold", begin]]);
@@ -801,7 +796,7 @@ function startLevel(c, l) {
 function landmarkBlock(c, l) {
   const ch = CHAPTERS[c];
   const notes = ch.showMarks || ch.marks.map(s => ({s, acc:0}));
-  return `<div class="marks"><small>Опорные ноты</small>${staffSVG(notes)}${l === 0 ? `<p>${ch.tip}</p>` : ""}</div>`;
+  return `<div class="marks">${staffSVG(notes)}${l === 0 ? `<p>${ch.tip}</p>` : ""}</div>`;
 }
 function describe(L) {
   return L.queue > 1 ? `<p>Ноты идут очередью по ${L.queue}: отвечай на самую левую.</p>` : "";
@@ -825,21 +820,19 @@ function hideCard() {
 }
 function showIntro(n) {
   G.state = "intro"; G.introNote = n;
-  const keyName = n.acc ? BLACK_NAMES[pcOf(n)].replace("<br>", " / ") : NAMES[n.s % 7];
   let title, body;
   if (n.acc) {
-    title = n.acc > 0 ? "Новый знак: диез ♯" : "Новый знак: бемоль ♭";
-    body = `<p>Нота стоит на своём месте, а играется соседняя чёрная клавиша ${n.acc > 0 ? "справа" : "слева"}.</p>
-      <p class="tip">${nameOf(n)}: ${n.acc > 0 ? "справа" : "слева"} от ${NAMES[n.s % 7]}.</p>`;
+    title = n.acc > 0 ? "Диез ♯" : "Бемоль ♭";
+    body = `<p>${nameOf(n)} — чёрная клавиша ${n.acc > 0 ? "справа" : "слева"} от ${NAMES[n.s % 7]}.</p>`;
   } else {
     const tip = (INTRO_TIPS[save.clef] || {})[n.s];
     const rel = relHint(n, G.c);
-    body = `<p>${wherePhrase(n.s)}${rel !== "это опорная нота" ? ` ${rel[0].toUpperCase() + rel.slice(1)}.` : ""}</p>${tip ? `<p class="tip">${tip}</p>` : ""}`;
+    body = `<p>${tip || `${wherePhrase(n.s)}${rel !== "это опорная нота" ? ` ${rel[0].toUpperCase() + rel.slice(1)}.` : ""}`}</p>`;
     const oct = Math.floor(n.s / 7);
-    title = `Новая нота: ${fullName(n)}${oct === 1 ? "" : " октавы"}`;
+    title = `${fullName(n)}${oct === 1 ? "" : " октавы"}`;
   }
   const pop = $("introPop");
-  pop.innerHTML = `<h4>${title}</h4>${body}<span class="press-hint">Нажми клавишу ${keyName} — это и будет ответ</span>
+  pop.innerHTML = `<h4>${title}</h4>${body}<span class="press-hint">Нажми подсвеченную клавишу</span>
     <button type="button" class="optout">Не показывать в этой главе</button>`;
   pop.querySelector(".optout").addEventListener("click", () => { setIntro(G.c, false); syncHintBtn(); endIntro(); });
   pop.hidden = false;
