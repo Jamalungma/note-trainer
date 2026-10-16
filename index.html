@@ -75,7 +75,10 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 .lvl:disabled { cursor: default; opacity: .5; }
 .lvl.next { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
 .marathon { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.section-title { margin: 8px 0 -4px; font-family: var(--f-display); font-weight: 600; font-size: 22px; color: var(--gold); }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 -4px; }
+.ch-tools { display: flex; align-items: center; gap: 10px; }
+.chip.chip-sm { padding: 4px 10px; font-size: 12px; letter-spacing: 0; text-transform: none; }
+.section-title { margin: 0; font-family: var(--f-display); font-weight: 600; font-size: 22px; color: var(--gold); }
 .map-inner { position: relative; }
 .clef-switch { display: flex; justify-content: center; gap: 0; margin-top: -8px; }
 .clef-switch button {
@@ -255,7 +258,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
       </header>
       <div class="clef-switch" id="clefSwitch" role="tablist" aria-label="Ключ"></div>
       <div id="chapters" style="display:flex;flex-direction:column;gap:16px"></div>
-      <h2 class="section-title">Тренировка</h2>
+      <div class="section-head"><h2 class="section-title">Тренировка</h2><span id="trainIntro"></span></div>
       <div class="training">
         <div class="chapter" id="freeCard"></div>
         <div class="chapter" id="weakCard"></div>
@@ -267,7 +270,6 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
       </div>
       <p class="map-foot">Три жизни на уровень. Десять верных подряд возвращают одну.<br>
         <span class="kb-only">С клавиатуры: <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> <kbd>J</kbd> белые, <kbd>W</kbd> <kbd>E</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd> чёрные, <kbd>Пробел</kbd> пауза.<br></span>
-        <span id="introBack" hidden><button type="button" id="introBackBtn">Снова показывать знакомство с новыми нотами</button><br></span>
         Звук рояля: Salamander Grand Piano, Alexander Holm, <a href="https://creativecommons.org/licenses/by/3.0/" style="color:inherit">CC BY 3.0</a>.</p>
     </div>
   </section>
@@ -522,7 +524,7 @@ const introKey = n => n.acc ? `acc${n.acc}` : String(n.s);
 
 // ---------- Save ----------
 const SAVE_KEY = "note-trainer-v1";
-let save = { clef:"treble", muted:false, iosTip:false, introOff:false, data:{} };
+let save = { clef:"treble", muted:false, iosTip:false, data:{} };
 try { const raw = localStorage.getItem(SAVE_KEY); if (raw) save = Object.assign(save, JSON.parse(raw)); } catch (e) {}
 // v1 kept treble progress at the top level
 if (!save.data.treble && (save.stars || save.weak)) save.data.treble = { stars: save.stars || {}, best: save.best || 0, weak: save.weak || {}, free: save.free };
@@ -530,11 +532,19 @@ if (!save.data.treble && (save.stars || save.weak)) save.data.treble = { stars: 
 for (const k in CLEFS) {
   const d = save.data[k] = save.data[k] || {};
   d.stars = d.stars || {}; d.best = d.best || 0; d.weak = d.weak || {}; d.met = d.met || {};
+  d.introOff = d.introOff || {};
+  // older saves had one global switch: carry it over to every chapter
+  if (save.introOff) { CLEFS[k].chapters.forEach((_, c) => { d.introOff[c] = true; }); d.introOff.train = true; }
   d.free = d.free || { oct:[CLEFS[k].freeDefault], acc:false, speed:1, labels:false };
 }
+delete save.introOff;
 if (!CLEFS[save.clef]) save.clef = "treble";
 const P = () => save.data[save.clef];
 setClef(save.clef);
+// note introductions are switched per chapter; practice modes and the marathon share one switch
+const introGroup = c => c >= 0 ? c : "train";
+const introOn = c => !P().introOff[introGroup(c)];
+const setIntro = (c, on) => { if (on) delete P().introOff[introGroup(c)]; else P().introOff[introGroup(c)] = true; persist(); };
 const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} };
 const lvKey = (c, l) => `${c}.${l}`;
 // every level is open: progress lives in one browser, so locking would strand players on a new device
@@ -557,8 +567,9 @@ function renderMap() {
     const el = document.createElement("div");
     el.className = "chapter" + (open ? "" : " locked");
     const earned = ch.levels.reduce((a, _, l) => a + (P().stars[lvKey(c,l)] || 0), 0);
-    el.innerHTML = `<div class="ch-head"><h2>${ch.title}</h2><span>${earned} / ${ch.levels.length*3} ★</span></div>
+    el.innerHTML = `<div class="ch-head"><h2>${ch.title}</h2><div class="ch-tools"><span>${earned} / ${ch.levels.length*3} ★</span></div></div>
       <div class="levels"></div>`;
+    el.querySelector(".ch-tools").prepend(introChip(c));
     const lv = el.querySelector(".levels");
     ch.levels.forEach((L, l) => {
       const b = document.createElement("button"); b.className = "lvl";
@@ -572,7 +583,7 @@ function renderMap() {
     wrap.appendChild(el);
   });
   syncSoundBtn(); renderClefSwitch(); renderPractice();
-  $("introBack").hidden = !save.introOff;
+  $("trainIntro").replaceChildren(introChip(-1));
   const mOpen = marathonUnlocked();
   $("marathonCard").classList.toggle("locked", !mOpen);
   $("marathonBtn").disabled = !mOpen;
@@ -580,7 +591,12 @@ function renderMap() {
     ? `Все ноты, скорость растёт без конца. Рекорд: ${P().best}.`
     : "Все ноты, скорость растёт без конца. Откроется после финала.";
 }
-$("introBackBtn").addEventListener("click", () => { save.introOff = false; persist(); renderMap(); });
+function introChip(c) {
+  const b = chip("Подсказки", introOn(c), () => { setIntro(c, !introOn(c)); renderMap(); });
+  b.classList.add("chip-sm");
+  b.title = "Знакомство с новыми нотами: где стоит нота и как её найти";
+  return b;
+}
 $("marathonBtn").addEventListener("click", () => marathonUnlocked() && startLevel(-1, -1));
 
 const IS_IOS = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -818,9 +834,9 @@ function showIntro(n) {
   const pop = $("introPop");
   pop.innerHTML = `<h4>${title}</h4>${body}<span class="press-hint">Нажми клавишу ${keyName} — это и будет ответ</span>
     <div class="pop-row"><button type="button" class="btn-ghost pop-ok">Понятно</button></div>
-    <button type="button" class="optout">Я знаю ноты, не показывать</button>`;
+    <button type="button" class="optout">Не показывать ${G.c >= 0 ? "в этой главе" : "в тренировках"}</button>`;
   pop.querySelector(".pop-ok").addEventListener("click", () => { P().met[introKey(n)] = 1; persist(); endIntro(); });
-  pop.querySelector(".optout").addEventListener("click", () => { save.introOff = true; persist(); endIntro(); });
+  pop.querySelector(".optout").addEventListener("click", () => { setIntro(G.c, false); endIntro(); });
   pop.hidden = false;
   // place the bubble above or below the note so the note itself stays visible
   // stem points up below the middle line, down above it: put the bubble on the label side, clear of the stem
@@ -929,7 +945,7 @@ function update(dt) {
   }
   for (const n of G.notes) n.x -= speed * dt;
   // first meeting: stop as soon as the new note is fully on screen
-  if (!save.introOff) {
+  if (introOn(G.c)) {
     const fresh = G.notes.find(n => !n.introSeen && !P().met[introKey(n)] && n.x <= W - g.hs * 4);
     if (fresh) { fresh.introSeen = true; showIntro(fresh); return; }
   }
@@ -953,7 +969,7 @@ function press(pc) {
   const target = G.notes[0];
   if (!target) { playMidi(60 + pc, .7); flashKey(pc, "down", 150); return; }
   // a key pressed before a brand-new note got its introduction opens the introduction instead of costing a life
-  if (!save.introOff && !target.introSeen && !P().met[introKey(target)]) { target.introSeen = true; showIntro(target); return; }
+  if (introOn(G.c) && !target.introSeen && !P().met[introKey(target)]) { target.introSeen = true; showIntro(target); return; }
   if (pcOf(target) === pc) hit(target, pc); else fail(target, pc);
 }
 
