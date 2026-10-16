@@ -919,9 +919,9 @@ function update(dt) {
     G.spawnCd = Q === 1 ? .35 : .2;
   }
   for (const n of G.notes) n.x -= speed * dt;
-  // first meeting: stop once the new note is well inside the stage
+  // first meeting: stop as soon as the new note is fully on screen
   if (!save.introOff) {
-    const fresh = G.notes.find(n => !n.introSeen && !P().met[introKey(n)] && n.x <= g.hitX + (g.startX - g.hitX) * .62);
+    const fresh = G.notes.find(n => !n.introSeen && !P().met[introKey(n)] && n.x <= W - g.hs * 4);
     if (fresh) { fresh.introSeen = true; showIntro(fresh); return; }
   }
   // miss: leftmost reaches the hit line
@@ -940,6 +940,8 @@ function press(pc) {
   if (G.state !== "play") { playMidi(60 + pc, .7); flashKey(pc, "down", 150); return; }
   const target = G.notes[0];
   if (!target) { playMidi(60 + pc, .7); flashKey(pc, "down", 150); return; }
+  // a key pressed before a brand-new note got its introduction opens the introduction instead of costing a life
+  if (!save.introOff && !target.introSeen && !P().met[introKey(target)]) { target.introSeen = true; showIntro(target); return; }
   if (pcOf(target) === pc) hit(target, pc); else fail(target, pc);
 }
 
