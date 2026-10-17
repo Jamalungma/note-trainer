@@ -95,6 +95,16 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 .clef-switch button[aria-selected="true"] { color: var(--ink); background: var(--panel-2); border-color: var(--gold-dim); }
 .clef-switch button[aria-selected="true"] i { color: var(--gold); }
 .map-sound { position: absolute; top: 0; right: 0; z-index: 1; }
+.map-piano { position: absolute; top: 0; left: 0; z-index: 1; }
+.input-rows { display: flex; flex-direction: column; text-align: left; }
+.input-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; flex-wrap: wrap; }
+.input-row + .input-row { border-top: 1px solid var(--rule); }
+.input-row div { flex: 1 1 170px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.input-row b { font-weight: 600; font-size: 14.5px; color: var(--ink); }
+.input-row small { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+.input-row small.live { color: var(--good); }
+.input-row .btn-ghost { padding: 7px 14px; font-size: 13px; }
+.heard { font-size: 15px; color: var(--gold); min-height: 22px; }
 .chip {
   background: var(--panel-2); border: 1px solid var(--rule); border-radius: 999px; padding: 7px 14px;
   font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px;
@@ -127,7 +137,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 }
 .icon-btn { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--rule); background: var(--panel-2); display: grid; place-items: center; font-size: 16px; flex: none; }
 .bar-top { display: flex; align-items: center; gap: 12px; flex: 1 1 260px; min-width: 0; }
-.bar-top #hintBtn { margin-left: auto; }
+.bar-top .title { margin-right: auto; }
 .icon-btn.on { color: var(--gold); border-color: var(--gold-dim); }
 .bar .title { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
 .bar .title small { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
@@ -252,6 +262,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 <div class="app">
   <section id="map" aria-label="Карта уровней">
     <div class="map-inner">
+      <button class="icon-btn map-piano" id="mapPianoBtn" aria-label="Своё пианино"></button>
       <button class="icon-btn map-sound" id="mapSoundBtn" aria-label="Звук"></button>
       <header class="brand">
         <div class="brand-title"><span class="clef" id="brandClef" aria-hidden="true">𝄞</span><h1>Нотный тренажёр</h1></div>
@@ -281,6 +292,7 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
       <div class="bar-top">
         <button class="icon-btn" id="backBtn" aria-label="К уровням">←</button>
         <div class="title"><small id="gChapter">Глава 1</small><b id="gTitle">До–Соль</b></div>
+        <button class="icon-btn" id="pianoBtn" aria-label="Своё пианино"></button>
         <button class="icon-btn" id="hintBtn" aria-label="Подсказки о новых нотах"></button>
         <button class="icon-btn" id="soundBtn" aria-label="Звук"></button>
         <button class="icon-btn" id="pauseBtn" aria-label="Пауза">❚❚</button>
@@ -641,7 +653,7 @@ function renderMap() {
     });
     wrap.appendChild(el);
   });
-  syncSoundBtn(); renderClefSwitch(); renderPractice(); renderSongs();
+  syncSoundBtn(); syncPianoBtns(); renderClefSwitch(); renderPractice(); renderSongs();
   const mOpen = marathonUnlocked();
   $("marathonCard").classList.toggle("locked", !mOpen);
   $("marathonBtn").disabled = !mOpen;
@@ -774,7 +786,7 @@ function nearestSample(m) {
   return best;
 }
 function playMidi(m, vel = 1) {
-  if (save.muted) return;
+  if (save.muted || quietForInput()) return;
   const a = audio(); if (!a) return;
   const sm = nearestSample(m);
   if (sm === null || Math.abs(sm - m) > 4) return synthMidi(m, vel);
@@ -786,7 +798,7 @@ function playMidi(m, vel = 1) {
   src.connect(g); g.connect(a.destination); src.start(t); src.stop(t + 2.5);
 }
 function synthMidi(m, vel = 1) {
-  if (save.muted) return;
+  if (save.muted || quietForInput()) return;
   const a = audio(); if (!a) return;
   const t = a.currentTime, f = 440 * Math.pow(2, (m-69)/12);
   const out = a.createGain(); out.gain.setValueAtTime(0, t);
@@ -802,7 +814,7 @@ function synthMidi(m, vel = 1) {
   });
 }
 function playBuzz() {
-  if (save.muted) return;
+  if (save.muted || quietForInput()) return;
   const a = audio(); if (!a) return;
   const t = a.currentTime, o = a.createOscillator(), g = a.createGain();
   o.type = "sawtooth"; o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(70, t+.25);
@@ -820,6 +832,123 @@ function syncSoundBtn() {
   });
 }
 ["soundBtn", "mapSoundBtn"].forEach(id => $(id).addEventListener("click", () => { save.muted = !save.muted; persist(); syncSoundBtn(); audio(); }));
+// ---------- Real piano input: MIDI and microphone ----------
+const ICON_PIANO = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v9M12 4v9M16 4v9M8 13v7M12 13v7M16 13v7"/><path d="M7 4h2v9H7zM15 4h2v9h-2z" fill="currentColor"/></svg>';
+const PC_NAMES = ["До","До♯","Ре","Ре♯","Ми","Фа","Фа♯","Соль","Соль♯","Ля","Ля♯","Си"];
+const midiName = m => `${PC_NAMES[m % 12]} ${OCT_NAME[Math.floor(m / 12) - 1] || ""}`.trim();
+const inp = { midi: null, midiNames: [], midiMsg: "", mic: null, micMsg: "", heard: "", ext: false };
+// the instrument makes its own sound; with a microphone our sound would also be heard as a note
+const quietForInput = () => inp.ext || !!inp.mic;
+function externalNote(m) {
+  inp.heard = midiName(m);
+  const h = document.getElementById("heardNote"); if (h) h.textContent = `Слышу: ${inp.heard}`;
+  inp.ext = true;
+  try { if (G && G.state !== "input") press(m % 12); else flashKey(m % 12, "down", 180); } finally { inp.ext = false; }
+}
+async function connectMidi() {
+  if (!navigator.requestMIDIAccess) { inp.midiMsg = "Этот браузер не поддерживает MIDI. Подойдёт Chrome или Edge на компьютере или Android."; return; }
+  try {
+    inp.midi = await navigator.requestMIDIAccess();
+    const bind = () => {
+      inp.midiNames = [];
+      for (const input of inp.midi.inputs.values()) {
+        inp.midiNames.push(input.name);
+        input.onmidimessage = e => { const [st, note, vel] = e.data; if ((st & 0xf0) === 0x90 && vel > 0) externalNote(note); };
+      }
+      inp.midiMsg = inp.midiNames.length ? "" : "Пианино не найдено. Подключи его кабелем и включи.";
+      if (G && G.state === "input") renderInputCard();
+      syncPianoBtns();
+    };
+    inp.midi.onstatechange = bind; bind();
+  } catch (e) { inp.midi = null; inp.midiMsg = "Доступ к MIDI не дали. Разреши его в настройках сайта или открой сайт в отдельной вкладке."; }
+}
+function disconnectMidi() {
+  if (inp.midi) { for (const input of inp.midi.inputs.values()) input.onmidimessage = null; inp.midi.onstatechange = null; }
+  inp.midi = null; inp.midiNames = []; inp.midiMsg = "";
+}
+// microphone: YIN pitch detection on the raw signal; a new note fires on a fresh attack or a change of pitch
+async function startMic() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { inp.micMsg = "Этот браузер не даёт доступа к микрофону."; return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    const a = audio(); const src = a.createMediaStreamSource(stream), an = a.createAnalyser();
+    an.fftSize = 2048; src.connect(an);
+    const buf = new Float32Array(an.fftSize);
+    const st = { last: -1, stable: 0, fired: -1, armed: true, prevRms: 0 };
+    const timer = setInterval(() => {
+      an.getFloatTimeDomainData(buf);
+      const { f, rms } = yin(buf, a.sampleRate);
+      if (rms < .008) { st.armed = true; st.last = -1; st.stable = 0; st.prevRms = rms; return; }
+      if (rms > st.prevRms * 1.8 && rms > .02) st.armed = true;      // a new strike, even of the same key
+      st.prevRms = rms;
+      if (f <= 0) return;
+      const m = Math.round(69 + 12 * Math.log2(f / 440));
+      if (m < 33 || m > 100) return;
+      if (m === st.last) st.stable++; else { st.last = m; st.stable = 1; }
+      if (st.stable >= 2 && (st.armed || m !== st.fired)) { st.fired = m; st.armed = false; externalNote(m); }
+    }, 30);
+    inp.mic = { stream, timer }; inp.micMsg = "";
+  } catch (e) { inp.mic = null; inp.micMsg = "Доступ к микрофону не дали. Разреши его в настройках браузера для этого сайта."; }
+}
+function stopMic() {
+  if (!inp.mic) return;
+  clearInterval(inp.mic.timer); inp.mic.stream.getTracks().forEach(t => t.stop()); inp.mic = null;
+}
+function yin(x, sr) {
+  let rms = 0; for (let i = 0; i < x.length; i++) rms += x[i] * x[i]; rms = Math.sqrt(rms / x.length);
+  if (rms < .008) return { f: -1, rms };
+  const minLag = Math.floor(sr / 1100), maxLag = Math.floor(sr / 60), W = x.length - maxLag;
+  const d = new Float32Array(maxLag + 1);
+  for (let tau = 1; tau <= maxLag; tau++) { let sum = 0; for (let j = 0; j < W; j++) { const v = x[j] - x[j + tau]; sum += v * v; } d[tau] = sum; }
+  let run = 0, best = -1;
+  const c = new Float32Array(maxLag + 1); c[0] = 1;
+  for (let tau = 1; tau <= maxLag; tau++) { run += d[tau]; c[tau] = run ? d[tau] * tau / run : 1; }
+  for (let tau = minLag; tau < maxLag; tau++) {
+    if (c[tau] < .15) { while (tau + 1 < maxLag && c[tau + 1] < c[tau]) tau++; best = tau; break; }
+  }
+  if (best < 0) return { f: -1, rms };
+  const a0 = c[best - 1], a1 = c[best], a2 = c[best + 1], den = a0 + a2 - 2 * a1;
+  const t = den ? best + (a0 - a2) / (2 * den) : best;
+  return { f: sr / t, rms };
+}
+function syncPianoBtns() {
+  const on = !!(inp.mic || (inp.midi && inp.midiNames.length));
+  ["pianoBtn", "mapPianoBtn"].forEach(id => {
+    const b = $(id); b.innerHTML = ICON_PIANO; b.classList.toggle("on", on);
+    b.title = on ? "Своё пианино подключено" : "Подключить своё пианино";
+  });
+}
+let inputReturn = null;
+function openInputCard() {
+  audio();
+  if (G && (G.state === "play" || G.state === "paused" || G.state === "ready")) { inputReturn = G.state; G.state = "input"; }
+  else inputReturn = null;
+  renderInputCard();
+}
+function renderInputCard() {
+  const midiOn = !!inp.midi, micOn = !!inp.mic;
+  const midiStatus = inp.midiMsg || (midiOn ? `Подключено: ${inp.midiNames.join(", ")}` : "Через USB или Bluetooth. Chrome или Edge.");
+  const micStatus = inp.micMsg || (micOn ? "Слушаю. Звук сайта на время выключен." : "Сайт слушает инструмент. Играй по одной ноте.");
+  showCard(`<h3>Своё пианино</h3>
+    <div class="input-rows">
+      <div class="input-row"><div><b>Цифровое пианино (MIDI)</b><small class="${midiOn && !inp.midiMsg ? "live" : ""}">${midiStatus}</small></div><button type="button" class="btn-ghost" id="midiToggle">${midiOn ? "Отключить" : "Подключить"}</button></div>
+      <div class="input-row"><div><b>Акустическое пианино (микрофон)</b><small class="${micOn ? "live" : ""}">${micStatus}</small></div><button type="button" class="btn-ghost" id="micToggle">${micOn ? "Выключить" : "Включить"}</button></div>
+    </div>
+    <p class="heard" id="heardNote">${inp.heard ? `Слышу: ${inp.heard}` : (midiOn || micOn ? "Нажми любую клавишу на пианино" : "")}</p>`,
+    [["Готово", "btn-gold", closeInputCard]]);
+  $("midiToggle").addEventListener("click", async () => { if (inp.midi) disconnectMidi(); else await connectMidi(); syncPianoBtns(); renderInputCard(); });
+  $("micToggle").addEventListener("click", async () => { if (inp.mic) stopMic(); else await startMic(); syncPianoBtns(); renderInputCard(); });
+}
+function closeInputCard() {
+  hideCard();
+  if (!G || inputReturn === null) return;
+  if (inputReturn === "ready") { G.state = "ready"; startLevel(G.c, G.l); }
+  else if (inputReturn === "paused") { G.state = "play"; togglePause(); }
+  else G.state = "play";
+  inputReturn = null;
+}
+["pianoBtn", "mapPianoBtn"].forEach(id => $(id).addEventListener("click", openInputCard));
+
 const ICON_HINT = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>';
 function syncHintBtn() {
   if (!G) return;
@@ -861,7 +990,7 @@ function startLevel(c, l) {
   $("gChapter").textContent = c === -1 ? "Марафон" : c === -4 ? (L.tempo ? "Песня · в темпе" : "Песня · разучить") : L.practice ? "Тренировка" : `Глава ${c+1} · ${CHAPTERS[c].title}`;
   $("gTitle").textContent = c === -1 ? `Рекорд ${P().best}` : (L.practice || L.song !== undefined) ? L.name : `${c+1}.${l+1} ${L.name}`;
   $("progLabel").textContent = L.marathon ? "Счёт" : L.endless ? "Верно" : "Ноты";
-  syncSoundBtn(); syncHintBtn(); resize();
+  syncSoundBtn(); syncHintBtn(); syncPianoBtns(); resize();
   if (L.song !== undefined) placeSong();
   updateHud();
   const kb = `<p class="kbd-hint">Пробел — пауза</p>`;
