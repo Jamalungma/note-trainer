@@ -105,6 +105,9 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 .input-row small.live { color: var(--good); }
 .input-row .btn-ghost { padding: 7px 14px; font-size: 13px; }
 .heard { font-size: 15px; color: var(--gold); min-height: 22px; }
+.mic-meter { height: 6px; border-radius: 3px; background: var(--panel-2); border: 1px solid var(--rule); overflow: hidden; }
+.mic-meter > div { height: 100%; width: 0; background: var(--gold-dim); transition: width .06s linear; }
+.mic-meter > div.hot { background: var(--good); }
 .chip {
   background: var(--panel-2); border: 1px solid var(--rule); border-radius: 999px; padding: 7px 14px;
   font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px;
@@ -871,15 +874,22 @@ async function startMic() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { inp.micMsg = "Этот браузер не даёт доступа к микрофону."; return; }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
-    const a = audio(); const src = a.createMediaStreamSource(stream), an = a.createAnalyser();
-    an.fftSize = 2048; src.connect(an);
+    const a = audio(); if (a.state === "suspended") await a.resume();
+    const src = a.createMediaStreamSource(stream), an = a.createAnalyser(), sink = a.createGain();
+    an.fftSize = 2048; sink.gain.value = 0;
+    src.connect(an); an.connect(sink); sink.connect(a.destination);   // some browsers only pull audio through a graph that reaches the output
     const buf = new Float32Array(an.fftSize);
-    const st = { last: -1, stable: 0, fired: -1, armed: true, prevRms: 0 };
+    // the gate follows the room's background level, so a quiet laptop microphone still works
+    const st = { last: -1, stable: 0, fired: -1, armed: true, prevRms: 0, floor: .002 };
     const timer = setInterval(() => {
       an.getFloatTimeDomainData(buf);
       const { f, rms } = yin(buf, a.sampleRate);
-      if (rms < .008) { st.armed = true; st.last = -1; st.stable = 0; st.prevRms = rms; return; }
-      if (rms > st.prevRms * 1.8 && rms > .02) st.armed = true;      // a new strike, even of the same key
+      st.floor = rms < st.floor ? rms : st.floor + (rms - st.floor) * .003;
+      const gate = Math.max(.0015, st.floor * 2.5);
+      inp.level = Math.min(1, rms / Math.max(gate * 6, .02));
+      const lv = document.getElementById("micLevel"); if (lv) { lv.style.width = (inp.level * 100) + "%"; lv.classList.toggle("hot", rms > gate); }
+      if (rms < gate) { st.armed = true; st.last = -1; st.stable = 0; st.prevRms = rms; return; }
+      if (rms > st.prevRms * 1.6 && rms > gate * 1.5) st.armed = true;      // a new strike, even of the same key
       st.prevRms = rms;
       if (f <= 0) return;
       const m = Math.round(69 + 12 * Math.log2(f / 440));
@@ -892,11 +902,11 @@ async function startMic() {
 }
 function stopMic() {
   if (!inp.mic) return;
-  clearInterval(inp.mic.timer); inp.mic.stream.getTracks().forEach(t => t.stop()); inp.mic = null;
+  clearInterval(inp.mic.timer); inp.mic.stream.getTracks().forEach(t => t.stop()); inp.mic = null; inp.level = 0;
 }
 function yin(x, sr) {
   let rms = 0; for (let i = 0; i < x.length; i++) rms += x[i] * x[i]; rms = Math.sqrt(rms / x.length);
-  if (rms < .008) return { f: -1, rms };
+  if (rms < .0008) return { f: -1, rms };
   const minLag = Math.floor(sr / 1100), maxLag = Math.floor(sr / 60), W = x.length - maxLag;
   const d = new Float32Array(maxLag + 1);
   for (let tau = 1; tau <= maxLag; tau++) { let sum = 0; for (let j = 0; j < W; j++) { const v = x[j] - x[j + tau]; sum += v * v; } d[tau] = sum; }
@@ -905,6 +915,10 @@ function yin(x, sr) {
   for (let tau = 1; tau <= maxLag; tau++) { run += d[tau]; c[tau] = run ? d[tau] * tau / run : 1; }
   for (let tau = minLag; tau < maxLag; tau++) {
     if (c[tau] < .15) { while (tau + 1 < maxLag && c[tau + 1] < c[tau]) tau++; best = tau; break; }
+  }
+  if (best < 0) {
+    let min = .35;
+    for (let tau = minLag; tau < maxLag; tau++) if (c[tau] < min) { min = c[tau]; best = tau; }
   }
   if (best < 0) return { f: -1, rms };
   const a0 = c[best - 1], a1 = c[best], a2 = c[best + 1], den = a0 + a2 - 2 * a1;
@@ -928,12 +942,13 @@ function openInputCard() {
 function renderInputCard() {
   const midiOn = !!inp.midi, micOn = !!inp.mic;
   const midiStatus = inp.midiMsg || (midiOn ? `Подключено: ${inp.midiNames.join(", ")}` : "Через USB или Bluetooth. Chrome или Edge.");
-  const micStatus = inp.micMsg || (micOn ? "Слушаю. Звук сайта на время выключен." : "Сайт слушает инструмент. Играй по одной ноте.");
+  const micStatus = inp.micMsg || (micOn ? "Слушаю. Полоска показывает громкость: зелёная — нота слышна." : "Сайт слушает инструмент. Играй по одной ноте.");
   showCard(`<h3>Своё пианино</h3>
     <div class="input-rows">
       <div class="input-row"><div><b>Цифровое пианино (MIDI)</b><small class="${midiOn && !inp.midiMsg ? "live" : ""}">${midiStatus}</small></div><button type="button" class="btn-ghost" id="midiToggle">${midiOn ? "Отключить" : "Подключить"}</button></div>
       <div class="input-row"><div><b>Акустическое пианино (микрофон)</b><small class="${micOn ? "live" : ""}">${micStatus}</small></div><button type="button" class="btn-ghost" id="micToggle">${micOn ? "Выключить" : "Включить"}</button></div>
     </div>
+    ${micOn ? `<div class="mic-meter" aria-hidden="true"><div id="micLevel" style="width:${(inp.level || 0) * 100}%"></div></div>` : ""}
     <p class="heard" id="heardNote">${inp.heard ? `Слышу: ${inp.heard}` : (midiOn || micOn ? "Нажми любую клавишу на пианино" : "")}</p>`,
     [["Готово", "btn-gold", closeInputCard]]);
   $("midiToggle").addEventListener("click", async () => { if (inp.midi) disconnectMidi(); else await connectMidi(); syncPianoBtns(); renderInputCard(); });
