@@ -913,7 +913,7 @@ async function startMic() {
   src.connect(an); an.connect(sink); sink.connect(a.destination);   // some browsers only pull audio through a graph that reaches the output
   const wave = new Float32Array(an.fftSize), sr = a.sampleRate, span = Math.min(wave.length, Math.round(1024 * sr / 16000));
   const frame = new Array(1024);
-  const st = { pc: -1, stable: 0, firedPc: -1, armed: true, rmsHist: [], unvoiced: 0, peak: .01 };
+  const st = { pc: -1, stable: 0, firedPc: -1, armed: true, rmsHist: [], unvoiced: 0, peak: .01, fireRms: 0, recent: {} };
   // each analysis starts after the previous one finished, so a slow device never builds a backlog
   const timer = { id: 0, stopped: false };
   const tick = () => {
@@ -935,14 +935,21 @@ async function startMic() {
     // a fresh strike is louder than the moment just before — a ratio, so it works at any volume
     const recentMin = st.rmsHist.length ? Math.min(...st.rmsHist.slice(-3)) : 0;
     st.rmsHist.push(rms); if (st.rmsHist.length > 6) st.rmsHist.shift();
-    if (rms > recentMin * 1.5) { st.armed = true; st.stable = 0; }
-    if (!voiced) { if (++st.unvoiced >= 2) { st.armed = true; st.pc = -1; st.stable = 0; } return; }
+    // a ringing note wobbles and fades; only a real new strike (a jump close to the last attack's level) re-arms it
+    if (rms > recentMin * 1.6 && rms > st.fireRms * .3) { st.armed = true; st.stable = 0; }
+    if (!voiced) { if (++st.unvoiced >= 6) { st.armed = true; st.pc = -1; st.stable = 0; } return; }
     st.unvoiced = 0;
     const m = Math.round(69 + 12 * Math.log2(freq / 440));
     if (m < 28 || m > 100) return;
     const pc = m % 12;
     if (pc === st.pc) st.stable++; else { st.pc = pc; st.stable = 1; }
-    if (st.stable >= 2 && (st.armed || pc !== st.firedPc)) { st.firedPc = pc; st.armed = false; externalNote(m); }
+    // notes played in the last few seconds are still ringing, but much quieter than when struck:
+    // they count again on a real new strike, or when they sound nearly as loud as their own attack
+    const now = performance.now(), rec = st.recent[pc];
+    const fresh = !rec || now - rec.at > 2500 || (now - rec.at > 220 && (st.armed || rms > rec.rms * .6));
+    if (st.stable >= 2 && (pc !== st.firedPc || st.armed) && fresh) {
+      st.firedPc = pc; st.armed = false; st.fireRms = rms; st.recent[pc] = { at: now, rms }; externalNote(m);
+    }
   };
   tick();
   inp.mic = { stream, timer }; inp.micMsg = "";
