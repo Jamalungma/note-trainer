@@ -105,6 +105,9 @@ button:focus-visible, .key:focus-visible { outline: 2px solid var(--gold); outli
 .input-row small.live { color: var(--good); }
 .input-row .btn-ghost { padding: 7px 14px; font-size: 13px; }
 .heard { font-size: 15px; color: var(--gold); min-height: 22px; }
+.sens-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.sens-row #sensChips { display: flex; gap: 6px; }
+.sens-row .chip { padding: 5px 11px; font-size: 12.5px; }
 .mic-meter { height: 6px; border-radius: 3px; background: var(--panel-2); border: 1px solid var(--rule); overflow: hidden; }
 .mic-meter > div { height: 100%; width: 0; background: var(--gold-dim); transition: width .06s linear; }
 .mic-meter > div.hot { background: var(--good); }
@@ -841,6 +844,7 @@ const PC_NAMES = ["До","До♯","Ре","Ре♯","Ми","Фа","Фа♯","С�
 const midiName = m => `${PC_NAMES[m % 12]} ${OCT_NAME[Math.floor(m / 12) - 1] || ""}`.trim();
 const inp = { midi: null, midiNames: [], midiMsg: "", mic: null, micMsg: "", heard: "", ext: false };
 // the instrument makes its own sound; with a microphone our sound would also be heard as a note
+const MIC_SENS = [ { name:"Низкая", k:4, min:.004 }, { name:"Средняя", k:2.5, min:.0012 }, { name:"Высокая", k:1.7, min:.0005 } ];
 const quietForInput = () => inp.ext || !!inp.mic;
 function externalNote(m) {
   inp.heard = midiName(m);
@@ -873,57 +877,76 @@ function disconnectMidi() {
 async function startMic() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { inp.micMsg = "Этот браузер не даёт доступа к микрофону."; return; }
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true } });
     const a = audio(); if (a.state === "suspended") await a.resume();
     const src = a.createMediaStreamSource(stream), an = a.createAnalyser(), sink = a.createGain();
-    an.fftSize = 2048; sink.gain.value = 0;
+    an.fftSize = 4096; an.smoothingTimeConstant = 0; sink.gain.value = 0;
     src.connect(an); an.connect(sink); sink.connect(a.destination);   // some browsers only pull audio through a graph that reaches the output
-    const buf = new Float32Array(an.fftSize);
-    // the gate follows the room's background level, so a quiet laptop microphone still works
-    const st = { last: -1, stable: 0, fired: -1, armed: true, prevRms: 0, floor: .002 };
+    const wave = new Float32Array(an.fftSize), spec = new Float32Array(an.frequencyBinCount), binHz = a.sampleRate / an.fftSize;
+    // A piano note keeps ringing when the next key is struck, so instead of looking for one pitch
+    // we look at which note (with its overtones) got louder at the moment of the attack.
+    const lin = new Float32Array(spec.length);
+    const HW = [1, .8, .64, .51, .41, .33];
+    const salience = () => {
+      an.getFloatFrequencyData(spec);
+      for (let i = 0; i < spec.length; i++) lin[i] = Math.pow(10, spec[i] / 20);
+      const S = new Float32Array(128);
+      for (let m = 36; m <= 96; m++) {
+        const f0 = 440 * Math.pow(2, (m - 69) / 12); let sum = 0;
+        for (let h = 1; h <= 6; h++) {
+          const x = f0 * h / binHz, i = Math.floor(x), fr = x - i; if (i + 1 >= lin.length) break;
+          sum += HW[h - 1] * (lin[i] * (1 - fr) + lin[i + 1] * fr);
+        }
+        S[m] = sum;
+      }
+      return S;
+    };
+    // low notes sit closer together than the spectrum's resolution: decide between neighbours by their upper partials
+    const upper = (m, base) => {
+      const f0 = 440 * Math.pow(2, (m - 69) / 12); let sum = 0;
+      for (let h = 2; h <= 7; h++) {
+        const x = f0 * h / binHz, i = Math.floor(x), fr = x - i; if (i + 1 >= lin.length) break;
+        sum += lin[i] * (1 - fr) + lin[i + 1] * fr;
+      }
+      return sum - (base ? base[m] * .3 : 0);
+    };
+    const st = { long: [], rmsHist: [], salHist: [], pending: null, lastOnset: 0 };
     const timer = setInterval(() => {
-      an.getFloatTimeDomainData(buf);
-      const { f, rms } = yin(buf, a.sampleRate);
-      st.floor = rms < st.floor ? rms : st.floor + (rms - st.floor) * .003;
-      const gate = Math.max(.0015, st.floor * 2.5);
-      inp.level = Math.min(1, rms / Math.max(gate * 6, .02));
+      an.getFloatTimeDomainData(wave);
+      let rms = 0; for (let i = wave.length - 1200; i < wave.length; i++) rms += wave[i] * wave[i]; rms = Math.sqrt(rms / 1200);
+      // background level: the quietest moment of the last ~5 seconds
+      st.long.push(rms); if (st.long.length > 200) st.long.shift();
+      const floor = Math.min(...st.long);
+      const sens = MIC_SENS[save.micSens ?? 1], gate = Math.max(sens.min, floor * sens.k);
+      inp.level = Math.min(1, rms / Math.max(gate * 8, .01));
       const lv = document.getElementById("micLevel"); if (lv) { lv.style.width = (inp.level * 100) + "%"; lv.classList.toggle("hot", rms > gate); }
-      if (rms < gate) { st.armed = true; st.last = -1; st.stable = 0; st.prevRms = rms; return; }
-      if (rms > st.prevRms * 1.6 && rms > gate * 1.5) st.armed = true;      // a new strike, even of the same key
-      st.prevRms = rms;
-      if (f <= 0) return;
-      const m = Math.round(69 + 12 * Math.log2(f / 440));
-      if (m < 33 || m > 100) return;
-      if (m === st.last) st.stable++; else { st.last = m; st.stable = 1; }
-      if (st.stable >= 2 && (st.armed || m !== st.fired)) { st.fired = m; st.armed = false; externalNote(m); }
-    }, 30);
+      const S = salience(), now = performance.now();
+      const recentMin = st.rmsHist.length ? Math.min(...st.rmsHist.slice(-4)) : 0;
+      // spectral rise: how much louder the notes got than 50 ms ago (catches a quiet key over ringing ones)
+      const prev = st.salHist[st.salHist.length - 2];
+      let flux = 0, total = 0;
+      if (prev) for (let m = 36; m <= 96; m++) { total += S[m]; if (S[m] > prev[m]) flux += S[m] - prev[m]; }
+      st.rmsHist.push(rms); if (st.rmsHist.length > 8) st.rmsHist.shift();
+      st.salHist.push(S); if (st.salHist.length > 8) st.salHist.shift();
+      if (rms < gate) { st.pending = null; return; }
+      if (((rms > recentMin * 1.45 && rms > gate * 1.2) || (total && flux > total * .3)) && now - st.lastOnset > 110) {
+        st.lastOnset = now;
+        st.pending = { base: st.salHist[Math.max(0, st.salHist.length - 4)], ticks: 0 };
+      }
+      if (st.pending && ++st.pending.ticks >= 2) {
+        const base = st.pending.base; let best = -1, bestD = 0, top = 0;
+        for (let m = 36; m <= 96; m++) { const d = S[m] - base[m]; if (d > bestD) { bestD = d; best = m; } if (S[m] > top) top = S[m]; }
+        st.pending = null;
+        if (best > 0 && best < 60) { const c = [best - 1, best, best + 1]; best = c.reduce((a, b) => upper(b, base) > upper(a, base) ? b : a); }
+        if (best > 0 && bestD > top * .15) externalNote(best);
+      }
+    }, 25);
     inp.mic = { stream, timer }; inp.micMsg = "";
   } catch (e) { inp.mic = null; inp.micMsg = "Доступ к микрофону не дали. Разреши его в настройках браузера для этого сайта."; }
 }
 function stopMic() {
   if (!inp.mic) return;
   clearInterval(inp.mic.timer); inp.mic.stream.getTracks().forEach(t => t.stop()); inp.mic = null; inp.level = 0;
-}
-function yin(x, sr) {
-  let rms = 0; for (let i = 0; i < x.length; i++) rms += x[i] * x[i]; rms = Math.sqrt(rms / x.length);
-  if (rms < .0008) return { f: -1, rms };
-  const minLag = Math.floor(sr / 1100), maxLag = Math.floor(sr / 60), W = x.length - maxLag;
-  const d = new Float32Array(maxLag + 1);
-  for (let tau = 1; tau <= maxLag; tau++) { let sum = 0; for (let j = 0; j < W; j++) { const v = x[j] - x[j + tau]; sum += v * v; } d[tau] = sum; }
-  let run = 0, best = -1;
-  const c = new Float32Array(maxLag + 1); c[0] = 1;
-  for (let tau = 1; tau <= maxLag; tau++) { run += d[tau]; c[tau] = run ? d[tau] * tau / run : 1; }
-  for (let tau = minLag; tau < maxLag; tau++) {
-    if (c[tau] < .15) { while (tau + 1 < maxLag && c[tau + 1] < c[tau]) tau++; best = tau; break; }
-  }
-  if (best < 0) {
-    let min = .35;
-    for (let tau = minLag; tau < maxLag; tau++) if (c[tau] < min) { min = c[tau]; best = tau; }
-  }
-  if (best < 0) return { f: -1, rms };
-  const a0 = c[best - 1], a1 = c[best], a2 = c[best + 1], den = a0 + a2 - 2 * a1;
-  const t = den ? best + (a0 - a2) / (2 * den) : best;
-  return { f: sr / t, rms };
 }
 function syncPianoBtns() {
   const on = !!(inp.mic || (inp.midi && inp.midiNames.length));
@@ -948,10 +971,13 @@ function renderInputCard() {
       <div class="input-row"><div><b>Цифровое пианино (MIDI)</b><small class="${midiOn && !inp.midiMsg ? "live" : ""}">${midiStatus}</small></div><button type="button" class="btn-ghost" id="midiToggle">${midiOn ? "Отключить" : "Подключить"}</button></div>
       <div class="input-row"><div><b>Акустическое пианино (микрофон)</b><small class="${micOn ? "live" : ""}">${micStatus}</small></div><button type="button" class="btn-ghost" id="micToggle">${micOn ? "Выключить" : "Включить"}</button></div>
     </div>
+    ${micOn ? `<div class="sens-row"><span>Чувствительность</span><span id="sensChips"></span></div>` : ""}
     ${micOn ? `<div class="mic-meter" aria-hidden="true"><div id="micLevel" style="width:${(inp.level || 0) * 100}%"></div></div>` : ""}
     <p class="heard" id="heardNote">${inp.heard ? `Слышу: ${inp.heard}` : (midiOn || micOn ? "Нажми любую клавишу на пианино" : "")}</p>`,
     [["Готово", "btn-gold", closeInputCard]]);
   $("midiToggle").addEventListener("click", async () => { if (inp.midi) disconnectMidi(); else await connectMidi(); syncPianoBtns(); renderInputCard(); });
+  const sc = document.getElementById("sensChips");
+  if (sc) MIC_SENS.forEach((m, i) => sc.append(chip(m.name, (save.micSens ?? 1) === i, () => { save.micSens = i; persist(); renderInputCard(); })));
   $("micToggle").addEventListener("click", async () => { if (inp.mic) stopMic(); else await startMic(); syncPianoBtns(); renderInputCard(); });
 }
 function closeInputCard() {
