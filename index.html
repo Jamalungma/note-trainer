@@ -913,7 +913,8 @@ async function startMic() {
   src.connect(an); an.connect(sink); sink.connect(a.destination);   // some browsers only pull audio through a graph that reaches the output
   const wave = new Float32Array(an.fftSize), sr = a.sampleRate, span = Math.min(wave.length, Math.round(1024 * sr / 16000));
   const frame = new Array(1024);
-  const st = { pc: -1, stable: 0, firedPc: -1, armed: true, rmsHist: [], unvoiced: 0, peak: .01, fireRms: 0, recent: {} };
+  // one strike gives at most one note: an attack opens a short window, the pitch is decided once it settles
+  const st = { votes: null, rmsHist: [], peak: .01, attackAt: -1e9, used: true, recent: {}, lastPc: -1 };
   // each analysis starts after the previous one finished, so a slow device never builds a backlog
   const timer = { id: 0, stopped: false };
   const tick = () => {
@@ -932,24 +933,25 @@ async function startMic() {
     st.peak = Math.max(rms, st.peak * .995);
     inp.level = Math.min(1, rms / st.peak);
     const lv = document.getElementById("micLevel"); if (lv) { lv.style.width = (inp.level * 100) + "%"; lv.classList.toggle("hot", voiced); }
-    // a fresh strike is louder than the moment just before — a ratio, so it works at any volume
-    const recentMin = st.rmsHist.length ? Math.min(...st.rmsHist.slice(-3)) : 0;
+    // a strike is a jump above the quietest moment just before it — a ratio, so it works at any volume
+    const recentMin = st.rmsHist.length >= 3 ? Math.min(...st.rmsHist.slice(-3)) : Infinity;
+    const prevRms = st.rmsHist.length ? st.rmsHist[st.rmsHist.length - 1] : Infinity;
     st.rmsHist.push(rms); if (st.rmsHist.length > 6) st.rmsHist.shift();
-    // a ringing note wobbles and fades; only a real new strike (a jump close to the last attack's level) re-arms it
-    if (rms > recentMin * 1.6 && rms > st.fireRms * .3) { st.armed = true; st.stable = 0; }
-    if (!voiced) { if (++st.unvoiced >= 6) { st.armed = true; st.pc = -1; st.stable = 0; } return; }
-    st.unvoiced = 0;
-    const m = Math.round(69 + 12 * Math.log2(freq / 440));
-    if (m < 28 || m > 100) return;
-    const pc = m % 12;
-    if (pc === st.pc) st.stable++; else { st.pc = pc; st.stable = 1; }
-    // notes played in the last few seconds are still ringing, but much quieter than when struck:
-    // they count again on a real new strike, or when they sound nearly as loud as their own attack
-    const now = performance.now(), rec = st.recent[pc];
-    const fresh = !rec || now - rec.at > 2500 || (now - rec.at > 220 && (st.armed || rms > rec.rms * .6));
-    if (st.stable >= 2 && (pc !== st.firedPc || st.armed) && fresh) {
-      st.firedPc = pc; st.armed = false; st.fireRms = rms; st.recent[pc] = { at: now, rms }; externalNote(m);
-    }
+    const now = performance.now();
+    // rising now (not just still above the dip while fading) and clearly above the moment before
+    if (rms > recentMin * 1.3 && rms > prevRms * 1.12 && rms > 2e-4 && now - st.attackAt > 90) { st.attackAt = now; st.used = false; st.votes = {}; }
+    let m = -1;
+    if (voiced) { m = Math.round(69 + 12 * Math.log2(freq / 440)); if (m < 28 || m > 100) m = -1; }
+    if (m >= 0 && st.used) st.lastPc = m % 12;           // what is ringing between strikes
+    if (st.used || now - st.attackAt > 450 || m < 0) return;
+    // vote within the strike window: the new key wins over the old one still ringing underneath
+    const pc = m % 12, ringing = pc === st.lastPc;
+    const v = st.votes[pc] = (st.votes[pc] || { n: 0, m }); v.n++; v.m = m;
+    if (v.n < (ringing ? 4 : 3)) return;
+    // the key that was already ringing counts again only if this strike is as loud as a fresh one
+    const rec = st.recent[pc];
+    if (rec && now - rec.at < 2500 && rms < rec.rms * .45) return;
+    st.used = true; st.lastPc = pc; st.recent[pc] = { at: now, rms }; externalNote(v.m);
   };
   tick();
   inp.mic = { stream, timer }; inp.micMsg = "";
